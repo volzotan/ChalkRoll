@@ -19,7 +19,7 @@ axes:
   
   z:
     steps_per_mm: 8.888
-    max_rate_mm_per_min: 5000.000
+    max_rate_mm_per_min: 10000.000
     acceleration_mm_per_sec2: 5000.000
     soft_limits: false
     homing:
@@ -39,8 +39,8 @@ axes:
         uart_num: 1
         addr: 0
         r_sense_ohms: 0.110
-        run_amps: 0.600
-        hold_amps: 0.500
+        run_amps: 1.000
+        hold_amps: 0.700
         microsteps: 16
         stallguard: 0
         stallguard_debug: false
@@ -56,8 +56,8 @@ axes:
 
   x:    
     steps_per_mm: 51.000
-    max_rate_mm_per_min: 5000.000
-    acceleration_mm_per_sec2: 2000.000
+    max_rate_mm_per_min: 4000.000
+    acceleration_mm_per_sec2: 1500.000
     max_travel_mm: 0.000
     soft_limits: false
     homing:
@@ -117,8 +117,8 @@ axes:
 
   y:
     steps_per_mm: 80.000
-    max_rate_mm_per_min: 10000.000
-    acceleration_mm_per_sec2: 5000.000
+    max_rate_mm_per_min: 20000.000
+    acceleration_mm_per_sec2: 2000.000
     max_travel_mm: 800.000
     soft_limits: false
     homing:
