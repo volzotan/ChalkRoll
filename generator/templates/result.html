@@ -1,0 +1,14 @@
+<!doctype html>
+<title>ChalkRoll image processing result</title>
+
+<h2>Preview Image</h2>
+<img src="data:image/png;base64,{{ data.image_data }}" />
+
+<details>
+  <summary>G-code</summary>
+  <p><pre>{{ data.gcode }}</pre></p>
+</details>
+
+<button>
+    <a href="data:text/plain;base64,{{ data.gcode_base64 }}" download="narf.gcode">download</a>
+</button>
