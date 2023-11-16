@@ -1,15 +1,33 @@
-<!doctype html>
-<title>ChalkRoll image processing result</title>
+{% extends 'base.html' %}
 
-<a href="/">Back</a>
-<h2>Preview Image: {{ data.image_filename }}</h2>
-<img src="data:image/png;base64,{{ data.preview_image_data }}" />
+{% block title %} ChalkRoll Processing Result: {{ data.image_filename }} {% endblock %}
 
-<details>
-  <summary>Machine Code</summary>
-  <p><pre>{{ data.gcode }}</pre></p>
-</details>
+{% block content %}
 
-<button>
-    <a href="data:text/plain;base64,{{ data.gcode_base64 }}" download="{{ data.gcode_filename }}">Download Machine Code: {{ data.gcode_filename }}</a>
-</button>
+<header>
+  <a href="/">&lt; Back</a>
+  <hgroup>
+    <h1>Preview Image</h1>
+    <h2>{{ data.image_filename }}</h2>
+  </hgroup>
+</header>
+
+<main>
+
+  <figure>
+    <img src="data:image/png;base64,{{ data.preview_image_data }}" />
+  </figure>
+  
+  <details>
+    <summary>Machine Code</summary>
+    <p>
+      <pre>{{ data.gcode }}</pre>
+    </p>
+  </details>
+
+  <a href="data:text/plain;base64,{{ data.gcode_base64 }}" download="{{ data.gcode_filename }}">Download Machine Code: {{ data.gcode_filename }}</a>
+
+
+</main>
+
+{% endblock %}

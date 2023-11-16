@@ -1,7 +1,26 @@
-<!doctype html>
-<title>ChalkRoll</title>
+{% extends 'base.html' %}
 
-<form action="/upload" method="POST" enctype="multipart/form-data">
-  <input type="file" name="image">
-  <input type="submit">
-</form>
+{% block title %} ChalkRoll {% endblock %}
+
+{% block content %}
+
+<header>
+  <hgroup>
+    <h1>ChalkRoll Image Processing</h1>
+    <h2></h2>
+  </hgroup>
+</header>
+
+<main>
+
+  Upload an image file (JPG, PNG).
+
+  <hr/>
+
+  <form action="/upload" method="POST" enctype="multipart/form-data">
+    <input type="file" name="image">
+    <input type="submit">
+  </form>
+</main>
+
+{% endblock %}

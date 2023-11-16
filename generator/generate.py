@@ -13,14 +13,16 @@ RESOLUTION_X      = PEN_DIAMETER
 RESOLUTION_Y      = 1
 
 TRIPLE_SCRUBBING  = True
-TWO_COLORS        = True
 OFFSET_LIFTER2    = 37
+
+TWO_COLORS        = None
 
 INPUT_IMAGE       = "../test6.png"
 
 def generate(img):
 
     # remove alpha channel
+
     if img.mode == "RGBA":
         img_rgb = Image.new("RGB", img.size, (255, 255, 255))
         img_rgb.paste(img, mask=img.split()[3])
@@ -30,6 +32,20 @@ def generate(img):
 
     if img.width < img.height:
         img = img.transpose()
+
+    # detect colors
+
+    img_arr = np.array(img, dtype=float)
+    # compute the diff between R-G, B-G, and R-B channels. Max value when [0, 255, 255] = 255*2
+    diff = np.abs(img_arr[:,:,0] - img_arr[:,:,1]) + np.abs(img_arr[:,:,1] - img_arr[:,:,2]) + np.abs(img_arr[:,:,0] - img_arr[:,:,2])
+    diff = diff / 255*2.0
+    num_diff = (diff > 0.10).sum()
+
+    # if more than 10% of all pixels have a color diff greater than 10%:
+    if num_diff > img.width*img.height*0.10:
+        TWO_COLORS = True
+    else:
+        TWO_COLORS = False # grayscale image
 
     # extract layer(s)
 
@@ -64,7 +80,6 @@ def generate(img):
     #     print("layer {}".format(i))
     #     display(layers[i])
 
-
     resize_height = int(GANTRY_LENGTH / RESOLUTION_Y)
     resize_width = int(img.width / img.height * GANTRY_LENGTH / RESOLUTION_X)
 
@@ -91,7 +106,6 @@ def generate(img):
 
     # debug_display(Image.fromarray(combined_image_debug))
 
-
     segments = []
     segment_start = None
     for x in range(combined_image.shape[1]):
@@ -116,8 +130,8 @@ def generate(img):
 
                     # if lifter2 is used an offset for the Y-axis needs to added
                     if segment[2] == 2:
-                        segment[0][1] += OFFSET_LIFTER2
-                        segment[1][1] += OFFSET_LIFTER2
+                        segment[0][1] += OFFSET_LIFTER2 * RESOLUTION_Y
+                        segment[1][1] += OFFSET_LIFTER2 * RESOLUTION_Y
                     
                     segments_line.append(segment)
 
@@ -133,8 +147,8 @@ def generate(img):
             segment = [segment_start, [x*RESOLUTION_X, y*RESOLUTION_Y], last_color]
             
             if segment[2] == 2:
-                segment[0][2] += OFFSET_LIFTER2
-                segment[1][2] += OFFSET_LIFTER2
+                segment[0][2] += OFFSET_LIFTER2 * RESOLUTION_Y
+                segment[1][2] += OFFSET_LIFTER2 * RESOLUTION_Y
                     
             segments_line.append(segment)
             segment_start = None
@@ -146,7 +160,6 @@ def generate(img):
     #    for s in l:
     #        print(s)
     #    print("---")
-
 
     segments_reversed = []
     for i in range(len(segments)):
