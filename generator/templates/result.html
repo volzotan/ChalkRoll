@@ -25,7 +25,9 @@
     </p>
   </details>
 
-  <a href="data:text/plain;base64,{{ data.gcode_base64 }}" download="{{ data.gcode_filename }}">Download Machine Code: {{ data.gcode_filename }}</a>
+  <button>
+    <a href="data:text/plain;base64,{{ data.gcode_base64 }}" download="{{ data.gcode_filename }}">Download Machine Code: {{ data.gcode_filename }}</a>
+  </button>
 
 
 </main>
