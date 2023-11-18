@@ -249,8 +249,8 @@ MANUAL_STEPPER STEPPER=lifter2 MOVE={pos:.4f} SPEED={feedrate} ACCEL={accel}
 
     END_CMD               = """
 G1 F{feedrate}
-G1 X0 
-G1 X0 Y0 
+G1 X{x:.4f} 
+G1 Y0 
 G92 X0 Y0 Z0
 
 MANUAL_STEPPER STEPPER=lifter1 ENABLE=0
@@ -328,8 +328,11 @@ MANUAL_STEPPER STEPPER=lifter2 ENABLE=0
             else:
                 raise Exception("unknown lifter head: {}".format(s[2]))
 
+    last_line = segments[-1][-1]
+
     f.write(END_CMD.format(
-        feedrate=FEEDRATE_X
+        feedrate=FEEDRATE_X,
+        x=last_line[1][0] + 100
     ))
 
     gcode_str = f.getvalue()
