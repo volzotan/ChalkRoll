@@ -8,7 +8,7 @@ from io import StringIO
 # all units in mm
 
 PEN_DIAMETER      = 15
-GANTRY_LENGTH     = 700
+GANTRY_LENGTH     = 800
 RESOLUTION_X      = PEN_DIAMETER
 RESOLUTION_Y      = 1
 
@@ -197,8 +197,8 @@ def gcode(segments, params={}):
     FEEDRATE_X        = 2000
     FEEDRATE_Y        = 10000
     FEEDRATE_Z_RAISE  = 800
-    FEEDRATE_Z_LOWER  = 2000
-    ACCELERATION_Z    = 60
+    FEEDRATE_Z_LOWER  = 6000
+    ACCELERATION_Z    = 90
     RAISE_DISTANCE    = 20
     
     START_CMD              = """
@@ -259,8 +259,9 @@ MANUAL_STEPPER STEPPER=lifter2 ENABLE=0
     
     f = StringIO()
 
-    f.write("% ChalkRoll --- date: {} / feedrate: X {} | Y {} | Z ^{} °{} @ {} mm/sec)\n".format(
-        datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 
+    f.write("% ChalkRoll --- date: {} \n".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+    f.write("% gantry length: {}mm \n".format(GANTRY_LENGTH))
+    f.write("% feedrate: X {} | Y {} | Z ^{} °{} @ {} mm/sec)\n".format(
         FEEDRATE_X, 
         FEEDRATE_Y, 
         FEEDRATE_Z_RAISE, 
