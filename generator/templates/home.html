@@ -19,6 +19,19 @@
 
   <form action="/upload" method="POST" enctype="multipart/form-data">
     <input type="file" name="image">
+
+    <fieldset>
+      <legend>Machine type:</legend>
+      <div>
+        <input type="radio" id="radio_klipper" name="machine_type" value="klipper" checked />
+        <label for="radio_klipper">Klipper</label>
+      </div>
+      <div>
+        <input type="radio" id="radio_fluidnc" name="machine_type" value="fluidnc" />
+        <label for="radio_fluidnc">FluidNC</label>
+      </div>
+    </fieldset>
+
     <input type="submit">
   </form>
 </main>

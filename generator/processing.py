@@ -1,25 +1,30 @@
 from datetime import datetime
+from io import StringIO
+from enum import Enum
 
 from PIL import Image, ImageOps
 import numpy as np
 
-from io import StringIO
+GCODE_TYPE_KLIPPER  = "KLIPPER"
+GCODE_TYPE_FLUIDNC  = "FLUIDNC"
+GCODE_TYPES = [GCODE_TYPE_KLIPPER, GCODE_TYPE_FLUIDNC]
 
 # all units in mm
 
-PEN_DIAMETER      = 15
-GANTRY_LENGTH     = 800
-RESOLUTION_X      = PEN_DIAMETER
-RESOLUTION_Y      = 1
+PEN_DIAMETER        = 15
+OFFSET_LIFTER2      = 37
+GANTRY_LENGTH       = 800 - OFFSET_LIFTER2
+RESOLUTION_X        = PEN_DIAMETER
+RESOLUTION_Y        = 1
 
-TRIPLE_SCRUBBING  = True
-OFFSET_LIFTER2    = 37
+TRIPLE_SCRUBBING    = True
 
-TWO_COLORS        = None
+TWO_COLORS          = None
 
-INPUT_IMAGE       = "../test6.png"
+DEBUG_INPUT_IMAGE   = "../test6.png"
 
-def generate(img):
+
+def generate(img, gcode_type=GCODE_TYPE_KLIPPER):
 
     # remove alpha channel
 
@@ -170,7 +175,7 @@ def generate(img):
             segments_reversed.append(list(reversed([[s[1], s[0], s[2]] for s in line])))
     segments = segments_reversed
 
-    gcode_str = gcode(segments)
+    gcode_str = gcode(segments, gcode_type)
 
     output_img = Image.fromarray(combined_image_debug)
     output_img = output_img.resize((
@@ -192,14 +197,21 @@ def write_to_file(filename, gcode):
         f.write(gcode)
 
 
-def gcode(segments, params={}):
+def gcode(segments, gcode_type, params={}):
     
-    FEEDRATE_X        = 2000
-    FEEDRATE_Y        = 10000
-    FEEDRATE_Z_RAISE  = 800
-    FEEDRATE_Z_LOWER  = 6000
-    ACCELERATION_Z    = 90
-    RAISE_DISTANCE    = 20
+    FEEDRATE_X              = 2000
+    FEEDRATE_Y              = 10000
+    FEEDRATE_Z_RAISE        = 800
+    FEEDRATE_Z_LOWER        = 6000
+    ACCELERATION_Z          = 90
+    RAISE_DISTANCE          = 20
+
+    if gcode_type == GCODE_TYPE_FLUIDNC:
+        FEEDRATE_X          = 1000
+        FEEDRATE_Y          = 2000
+        FEEDRATE_Z_RAISE    = 500
+        FEEDRATE_Z_LOWER    = 1000
+
     
     START_CMD              = """
 G90                                 
@@ -207,12 +219,14 @@ G21
 G28  
 G92 X0 Y0 Z0
 
+G1 F{feedrate}
+"""
+
+    START_CMD_KLIPPER     = """
 MANUAL_STEPPER STEPPER=lifter1 ENABLE=1
 MANUAL_STEPPER STEPPER=lifter1 SET_POSITION=0
 MANUAL_STEPPER STEPPER=lifter2 ENABLE=1
 MANUAL_STEPPER STEPPER=lifter2 SET_POSITION=0
-
-G1 F{feedrate}
 """
     
     MOVEX_CMD             = """
@@ -223,27 +237,27 @@ G1 X{x:.4f} F{feedrate}
 G1 Y{y:.4f} F{feedrate}
 """
 
-#    LOWER_1_CMD           = """
-#G1 Z{pos:.4f} F{feedrate}
-#"""
+    LOWER_1_CMD_FLUIDNC   = """
+G1 Z{pos:.4f} F{feedrate}
+"""
 
-    LOWER_1_CMD           = """
+    RAISE_1_CMD_FLUIDNC   = """
+G1 Z{pos:.4f} F{feedrate}
+"""
+
+    LOWER_1_CMD_KLIPPER   = """
 MANUAL_STEPPER STEPPER=lifter1 MOVE={pos:.4f} SPEED={feedrate} ACCEL={accel}
 """
     
-    LOWER_2_CMD           = """
+    LOWER_2_CMD_KLIPPER   = """
 MANUAL_STEPPER STEPPER=lifter2 MOVE={pos:.4f} SPEED={feedrate} ACCEL={accel}
 """
 
-#    RAISE_1_CMD           = """
-#G1 Z{pos:.4f} F{feedrate}
-#"""
-
-    RAISE_1_CMD           = """
+    RAISE_1_CMD_KLIPPER   = """
 MANUAL_STEPPER STEPPER=lifter1 MOVE={pos:.4f} SPEED={feedrate} ACCEL={accel}
 """
     
-    RAISE_2_CMD           = """
+    RAISE_2_CMD_KLIPPER   = """
 MANUAL_STEPPER STEPPER=lifter2 MOVE={pos:.4f} SPEED={feedrate} ACCEL={accel}
 """
 
@@ -252,29 +266,45 @@ G1 F{feedrate}
 G1 X{x:.4f} 
 G1 Y0 
 G92 X0 Y0 Z0
+"""
 
+    END_CMD_KLIPPER        = """
 MANUAL_STEPPER STEPPER=lifter1 ENABLE=0
 MANUAL_STEPPER STEPPER=lifter2 ENABLE=0
 """
     
     f = StringIO()
 
-    f.write("% ChalkRoll --- date: {} \n".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-    f.write("% gantry length: {}mm \n".format(GANTRY_LENGTH))
-    f.write("% feedrate: X {} | Y {} | Z ^{} °{} @ {} mm/sec)\n".format(
-        FEEDRATE_X, 
-        FEEDRATE_Y, 
-        FEEDRATE_Z_RAISE, 
-        FEEDRATE_Z_LOWER,
-        ACCELERATION_Z
-    ))
+    _write_gcode_comment(f, gcode_type, "ChalkRoll --- date: {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+    _write_gcode_comment(f, gcode_type, "gcode type: {}".format(gcode_type))
+    _write_gcode_comment(f, gcode_type, "gantry length: {}mm".format(GANTRY_LENGTH))
+    if gcode_type == GCODE_TYPE_KLIPPER:
+        _write_gcode_comment(f, gcode_type, "feedrate: X {} | Y {} | Z ^{} °{} @ {} mm/sec".format(
+            FEEDRATE_X, 
+            FEEDRATE_Y, 
+            FEEDRATE_Z_RAISE, 
+            FEEDRATE_Z_LOWER,
+            ACCELERATION_Z
+        ))
+    elif gcode_type == GCODE_TYPE_FLUIDNC:
+        _write_gcode_comment(f, gcode_type, "feedrate: X {} | Y {} | Z ^{} °{}".format(
+            FEEDRATE_X, 
+            FEEDRATE_Y, 
+            FEEDRATE_Z_RAISE, 
+            FEEDRATE_Z_LOWER
+        ))
 
     for key in params.keys():
         f.write("& info: {} : {}\n".format(key, params[key]))
 
     f.write(START_CMD.format(feedrate=FEEDRATE_X))
-    f.write(RAISE_1_CMD.format(pos=RAISE_DISTANCE, feedrate=FEEDRATE_Z_RAISE, accel=ACCELERATION_Z))
-    f.write(RAISE_2_CMD.format(pos=RAISE_DISTANCE, feedrate=FEEDRATE_Z_RAISE, accel=ACCELERATION_Z))
+
+    if gcode_type == GCODE_TYPE_KLIPPER:
+        f.write(START_CMD_KLIPPER)
+        f.write(RAISE_1_CMD_KLIPPER.format(pos=RAISE_DISTANCE, feedrate=FEEDRATE_Z_RAISE, accel=ACCELERATION_Z))
+        f.write(RAISE_2_CMD_KLIPPER.format(pos=RAISE_DISTANCE, feedrate=FEEDRATE_Z_RAISE, accel=ACCELERATION_Z))
+    elif gcode_type == GCODE_TYPE_FLUIDNC:
+        f.write(RAISE_1_CMD_FLUIDNC.format(pos=RAISE_DISTANCE, feedrate=FEEDRATE_Z_RAISE))
 
     for line in segments:
 
@@ -294,17 +324,22 @@ MANUAL_STEPPER STEPPER=lifter2 ENABLE=0
                 y=s[0][1], feedrate=FEEDRATE_Y
             ))
 
-            if s[2] == 1:
-                f.write(LOWER_1_CMD.format(
-                    pos=0, feedrate=FEEDRATE_Z_LOWER, accel=ACCELERATION_Z
+            if gcode_type == GCODE_TYPE_KLIPPER:
+                if s[2] == 1:
+                    f.write(LOWER_1_CMD_KLIPPER.format(
+                        pos=0, feedrate=FEEDRATE_Z_LOWER, accel=ACCELERATION_Z
+                    ))
+                elif s[2] == 2:
+                    f.write(LOWER_2_CMD_KLIPPER.format(
+                        pos=0, feedrate=FEEDRATE_Z_LOWER, accel=ACCELERATION_Z
+                    ))
+                else:
+                    raise Exception("unknown lifter head: {}".format(s[2]))
+            elif gcode_type == GCODE_TYPE_FLUIDNC:
+                f.write(LOWER_1_CMD_FLUIDNC.format(
+                        pos=0, feedrate=FEEDRATE_Z_LOWER
                 ))
-            elif s[2] == 2:
-                f.write(LOWER_2_CMD.format(
-                    pos=0, feedrate=FEEDRATE_Z_LOWER, accel=ACCELERATION_Z
-                ))
-            else:
-                raise Exception("unknown lifter head: {}".format(s[2]))
-    
+        
             f.write(MOVEY_CMD.format(
                 y=s[1][1],
                 feedrate=FEEDRATE_Y
@@ -318,16 +353,21 @@ MANUAL_STEPPER STEPPER=lifter2 ENABLE=0
                     y=s[1][1], feedrate=FEEDRATE_Y
                 ))
 
-            if s[2] == 1:
-                f.write(RAISE_1_CMD.format(
-                    pos=RAISE_DISTANCE, feedrate=FEEDRATE_Z_RAISE, accel=ACCELERATION_Z
+            if gcode_type == GCODE_TYPE_KLIPPER:
+                if s[2] == 1:
+                    f.write(RAISE_1_CMD_KLIPPER.format(
+                        pos=RAISE_DISTANCE, feedrate=FEEDRATE_Z_RAISE, accel=ACCELERATION_Z
+                    ))
+                elif s[2] == 2:
+                    f.write(RAISE_2_CMD_KLIPPER.format(
+                        pos=RAISE_DISTANCE, feedrate=FEEDRATE_Z_RAISE, accel=ACCELERATION_Z
+                    ))
+                else:
+                    raise Exception("unknown lifter head: {}".format(s[2]))
+            elif gcode_type == GCODE_TYPE_FLUIDNC:
+                f.write(RAISE_1_CMD_FLUIDNC.format(
+                        pos=RAISE_DISTANCE, feedrate=FEEDRATE_Z_RAISE
                 ))
-            elif s[2] == 2:
-                f.write(RAISE_2_CMD.format(
-                    pos=RAISE_DISTANCE, feedrate=FEEDRATE_Z_RAISE, accel=ACCELERATION_Z
-                ))
-            else:
-                raise Exception("unknown lifter head: {}".format(s[2]))
 
     last_line = segments[-1][-1]
 
@@ -336,11 +376,28 @@ MANUAL_STEPPER STEPPER=lifter2 ENABLE=0
         x=last_line[1][0] + 100
     ))
 
+    if gcode_type == GCODE_TYPE_KLIPPER:
+        f.write(END_CMD_KLIPPER)
+    elif gcode_type == GCODE_TYPE_FLUIDNC:
+        pass
+
     gcode_str = f.getvalue()
     f.close()
     return gcode_str
 
 
+def _write_gcode_comment(f, gcode_type, msg):
+
+    if gcode_type == GCODE_TYPE_KLIPPER:
+        f.write("% ")
+        f.write(msg)
+        f.write("\n")
+    elif gcode_type == GCODE_TYPE_FLUIDNC:
+        f.write("( ")
+        f.write(msg)
+        f.write(" )\n")
+
+
 if __name__ == "__main__":
-    result = generate(Image.open(INPUT_IMAGE))
+    result = generate(Image.open(DEBUG_INPUT_IMAGE))
     write_to_file("output.gcode", result["gcode"])

@@ -3,13 +3,16 @@ from flask import render_template
 from flask import request
 from PIL import Image
 
-from . import generate
+try:
+    import processing
+except ImportError as e:
+    from . import processing
 
 import io
 import base64
 from pathlib import Path
 
-app = Flask(__name__)
+app = Flask("generator")
 
 
 @app.route("/")
@@ -27,7 +30,11 @@ def upload():
         uploaded_image = request.files["image"].read()
         uploaded_image = Image.open(io.BytesIO(uploaded_image))
 
-        result = generate.generate(uploaded_image)
+        machine_type = request.form["machine_type"].upper()
+        if not machine_type in processing.GCODE_TYPES:
+            raise Exception("unknown machine_type: {}".format(machine_type))
+
+        result = processing.generate(uploaded_image, gcode_type=machine_type)
         
         img = result["image"]
 
@@ -50,5 +57,9 @@ def upload():
         return render_template("result.html", data=data)
 
     except Exception as e:
+        raise e
+        # return render_template("error.html")
 
-        return render_template("error.html")
+
+if __name__ == "__main__":
+   app.run(debug=False, host="0.0.0.0")
