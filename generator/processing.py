@@ -107,9 +107,9 @@ def generate(img, gcode_type=GCODE_TYPE_KLIPPER):
         color[i] = 255
         combined_image_debug[layer_array > 0] = color
 
-    # combined_image_debug[combined_image == 0] = [255, 255, 255]
-
-    # debug_display(Image.fromarray(combined_image_debug))
+    # PIL coordinate system is top-left, CNC coordinate system is bottom-left, so
+    # we need flip the image in the Y direction to invert the axis
+    combined_image = np.flip(combined_image, axis=0)
 
     segments = []
     segment_start = None
