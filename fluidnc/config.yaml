@@ -20,7 +20,7 @@ axes:
   z:
     steps_per_mm: 8.888
     max_rate_mm_per_min: 10000.000
-    acceleration_mm_per_sec2: 5000.000
+    acceleration_mm_per_sec2: 6000.000
     soft_limits: false
     homing:
       cycle: 0
@@ -51,13 +51,13 @@ axes:
         homing_mode: SpreadCycle
         use_enable: false
         step_pin: gpio.14
-        direction_pin: gpio.12
+        direction_pin: gpio.12:low
         disable_pin: NO_PIN
 
   x:    
     steps_per_mm: 51.000
     max_rate_mm_per_min: 4000.000
-    acceleration_mm_per_sec2: 1500.000
+    acceleration_mm_per_sec2: 500.000
     max_travel_mm: 0.000
     soft_limits: false
     homing:
@@ -118,7 +118,7 @@ axes:
   y:
     steps_per_mm: 80.000
     max_rate_mm_per_min: 20000.000
-    acceleration_mm_per_sec2: 2000.000
+    acceleration_mm_per_sec2: 1000.000
     max_travel_mm: 800.000
     soft_limits: false
     homing:

@@ -199,19 +199,19 @@ def write_to_file(filename, gcode):
 
 def gcode(segments, gcode_type, params={}):
     
-    FEEDRATE_X              = 2000
-    FEEDRATE_Y              = 10000
+    FEEDRATE_X              = 1000
+    FEEDRATE_Y              = 12000
     FEEDRATE_Z_RAISE        = 800
-    FEEDRATE_Z_LOWER        = 6000
-    ACCELERATION_Z          = 90
+    FEEDRATE_Z_LOWER        = 10000
+    ACCELERATION_Z          = 100
     RAISE_DISTANCE          = 20
 
     if gcode_type == GCODE_TYPE_FLUIDNC:
-        FEEDRATE_X          = 1000
-        FEEDRATE_Y          = 2000
-        FEEDRATE_Z_RAISE    = 500
-        FEEDRATE_Z_LOWER    = 1000
-
+        FEEDRATE_X          = 2000
+        FEEDRATE_Y          = 10000
+        FEEDRATE_Z_RAISE    = 5000
+        FEEDRATE_Z_LOWER    = 10000
+        RAISE_DISTANCE      = 90
     
     START_CMD              = """
 G90                                 
