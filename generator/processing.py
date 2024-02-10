@@ -208,7 +208,7 @@ def gcode(segments, gcode_type, params={}):
 
     if gcode_type == GCODE_TYPE_FLUIDNC:
         FEEDRATE_X          = 2000
-        FEEDRATE_Y          = 10000
+        FEEDRATE_Y          = 12000
         FEEDRATE_Z_RAISE    = 5000
         FEEDRATE_Z_LOWER    = 10000
         RAISE_DISTANCE      = 90

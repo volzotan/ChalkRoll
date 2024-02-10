@@ -139,7 +139,7 @@ axes:
         uart_num: 1
         addr: 3
         r_sense_ohms: 0.110
-        run_amps: 0.600
+        run_amps: 0.900
         hold_amps: 0.500
         microsteps: 16
         stallguard: 0
