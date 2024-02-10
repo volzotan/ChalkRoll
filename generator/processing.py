@@ -17,14 +17,14 @@ GANTRY_LENGTH       = 800 - OFFSET_LIFTER2
 RESOLUTION_X        = PEN_DIAMETER
 RESOLUTION_Y        = 1
 
-TRIPLE_SCRUBBING    = True
+# TRIPLE_SCRUBBING    = True
 
 TWO_COLORS          = None
 
 DEBUG_INPUT_IMAGE   = "../test6.png"
 
 
-def generate(img, gcode_type=GCODE_TYPE_KLIPPER):
+def generate(img, gcode_type=GCODE_TYPE_KLIPPER, triple_scrubbing=False):
 
     # remove alpha channel
 
@@ -175,7 +175,7 @@ def generate(img, gcode_type=GCODE_TYPE_KLIPPER):
             segments_reversed.append(list(reversed([[s[1], s[0], s[2]] for s in line])))
     segments = segments_reversed
 
-    gcode_str = gcode(segments, gcode_type)
+    gcode_str = gcode(segments, gcode_type, triple_scrubbing)
 
     output_img = Image.fromarray(combined_image_debug)
     output_img = output_img.resize((
@@ -197,7 +197,7 @@ def write_to_file(filename, gcode):
         f.write(gcode)
 
 
-def gcode(segments, gcode_type, params={}):
+def gcode(segments, gcode_type, triple_scrubbing, params={}):
     
     FEEDRATE_X              = 1000
     FEEDRATE_Y              = 12000
@@ -345,7 +345,7 @@ MANUAL_STEPPER STEPPER=lifter2 ENABLE=0
                 feedrate=FEEDRATE_Y
             ))
 
-            if TRIPLE_SCRUBBING:
+            if triple_scrubbing:
                 f.write(MOVEY_CMD.format(
                     y=s[0][1], feedrate=FEEDRATE_Y
                 ))

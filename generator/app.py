@@ -34,7 +34,11 @@ def upload():
         if not machine_type in processing.GCODE_TYPES:
             raise Exception("unknown machine_type: {}".format(machine_type))
 
-        result = processing.generate(uploaded_image, gcode_type=machine_type)
+        option_triplescrubbing = False
+        if "triplescrubbing" in request.form and request.form["triplescrubbing"].upper() in ["TRUE", "1"]:
+            option_triplescrubbing = True
+
+        result = processing.generate(uploaded_image, gcode_type=machine_type, triple_scrubbing=option_triplescrubbing)
         
         img = result["image"]
 
