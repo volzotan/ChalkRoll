@@ -22,6 +22,7 @@ RESOLUTION_Y        = 1
 TWO_COLORS          = None
 
 DEBUG_INPUT_IMAGE   = "../test6.png"
+DEBUG_INPUT_IMAGE   = "../HelloWorld_1bit.png"
 
 
 def generate(img, gcode_type=GCODE_TYPE_KLIPPER, triple_scrubbing=False):
@@ -306,40 +307,54 @@ MANUAL_STEPPER STEPPER=lifter2 ENABLE=0
     elif gcode_type == GCODE_TYPE_FLUIDNC:
         f.write(RAISE_1_CMD_FLUIDNC.format(pos=RAISE_DISTANCE, feedrate=FEEDRATE_Z_RAISE))
 
-    for line in segments:
+    for i in range(len(segments)):
 
-        if len(line) == 0:
+        column = segments[i]
+        next_column = None
+        if i < len(segments)-1:
+            next_column = segments[i+1]
+
+        if len(column) == 0:
             continue
-        
-        first_segment_in_line = line[0]
 
+        # move to first column
         f.write(MOVEX_CMD.format(
-            x=first_segment_in_line[0][0],
+            x=column[0][0][0],
             feedrate=FEEDRATE_X
         ))
         
-        for s in line:
+        raise_after_column = True
+
+        for j in range(len(column)):
+            s = column[j]
+
+            # MOVE TO START
 
             f.write(MOVEY_CMD.format(
                 y=s[0][1], feedrate=FEEDRATE_Y
             ))
 
-            if gcode_type == GCODE_TYPE_KLIPPER:
-                if s[2] == 1:
-                    f.write(LOWER_1_CMD_KLIPPER.format(
-                        pos=0, feedrate=FEEDRATE_Z_LOWER, accel=ACCELERATION_Z
+            # LOWER
+
+            if raise_after_column:
+                if gcode_type == GCODE_TYPE_KLIPPER:
+                    if s[2] == 1:
+                        f.write(LOWER_1_CMD_KLIPPER.format(
+                            pos=0, feedrate=FEEDRATE_Z_LOWER, accel=ACCELERATION_Z
+                        ))
+                    elif s[2] == 2:
+                        f.write(LOWER_2_CMD_KLIPPER.format(
+                            pos=0, feedrate=FEEDRATE_Z_LOWER, accel=ACCELERATION_Z
+                        ))
+                    else:
+                        raise Exception("unknown lifter head: {}".format(s[2]))
+                elif gcode_type == GCODE_TYPE_FLUIDNC:
+                    f.write(LOWER_1_CMD_FLUIDNC.format(
+                            pos=0, feedrate=FEEDRATE_Z_LOWER
                     ))
-                elif s[2] == 2:
-                    f.write(LOWER_2_CMD_KLIPPER.format(
-                        pos=0, feedrate=FEEDRATE_Z_LOWER, accel=ACCELERATION_Z
-                    ))
-                else:
-                    raise Exception("unknown lifter head: {}".format(s[2]))
-            elif gcode_type == GCODE_TYPE_FLUIDNC:
-                f.write(LOWER_1_CMD_FLUIDNC.format(
-                        pos=0, feedrate=FEEDRATE_Z_LOWER
-                ))
         
+            # MOVE
+
             f.write(MOVEY_CMD.format(
                 y=s[1][1],
                 feedrate=FEEDRATE_Y
@@ -353,24 +368,42 @@ MANUAL_STEPPER STEPPER=lifter2 ENABLE=0
                     y=s[1][1], feedrate=FEEDRATE_Y
                 ))
 
-            if gcode_type == GCODE_TYPE_KLIPPER:
-                if s[2] == 1:
-                    f.write(RAISE_1_CMD_KLIPPER.format(
-                        pos=RAISE_DISTANCE, feedrate=FEEDRATE_Z_RAISE, accel=ACCELERATION_Z
+            # CHECK IF RAISE IS NECESSARY
+
+            raise_after_column = True
+            # if we're looking at the last segment of the current column
+            if j == len(column)-1:
+                if not next_column is None:
+                    # and the next column is right next to the current one
+                    diff_X = abs(s[1][0] - next_column[0][0][0])
+                    # and first segment in next column starts at same Y coordinate
+                    diff_Y = abs(s[1][1] - next_column[0][0][1])
+                    if diff_X <= PEN_DIAMETER and diff_Y < PEN_DIAMETER:
+                        # and with the same color
+                        if s[2] == next_column[0][2]:
+                            # do not raise
+                            raise_after_column = False
+
+            # RAISE
+
+            if raise_after_column:
+                if gcode_type == GCODE_TYPE_KLIPPER:
+                    if s[2] == 1:
+                        f.write(RAISE_1_CMD_KLIPPER.format(
+                            pos=RAISE_DISTANCE, feedrate=FEEDRATE_Z_RAISE, accel=ACCELERATION_Z
+                        ))
+                    elif s[2] == 2:
+                        f.write(RAISE_2_CMD_KLIPPER.format(
+                            pos=RAISE_DISTANCE, feedrate=FEEDRATE_Z_RAISE, accel=ACCELERATION_Z
+                        ))
+                    else:
+                        raise Exception("unknown lifter head: {}".format(s[2]))
+                elif gcode_type == GCODE_TYPE_FLUIDNC:
+                    f.write(RAISE_1_CMD_FLUIDNC.format(
+                            pos=RAISE_DISTANCE, feedrate=FEEDRATE_Z_RAISE
                     ))
-                elif s[2] == 2:
-                    f.write(RAISE_2_CMD_KLIPPER.format(
-                        pos=RAISE_DISTANCE, feedrate=FEEDRATE_Z_RAISE, accel=ACCELERATION_Z
-                    ))
-                else:
-                    raise Exception("unknown lifter head: {}".format(s[2]))
-            elif gcode_type == GCODE_TYPE_FLUIDNC:
-                f.write(RAISE_1_CMD_FLUIDNC.format(
-                        pos=RAISE_DISTANCE, feedrate=FEEDRATE_Z_RAISE
-                ))
 
     last_line = segments[-1][-1]
-
     f.write(END_CMD.format(
         feedrate=FEEDRATE_X,
         x=last_line[1][0] + 100
@@ -399,5 +432,5 @@ def _write_gcode_comment(f, gcode_type, msg):
 
 
 if __name__ == "__main__":
-    result = generate(Image.open(DEBUG_INPUT_IMAGE))
+    result = generate(Image.open(DEBUG_INPUT_IMAGE), gcode_type=GCODE_TYPE_FLUIDNC)
     write_to_file("output.gcode", result["gcode"])
