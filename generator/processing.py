@@ -198,6 +198,28 @@ def write_to_file(filename, gcode):
         f.write(gcode)
 
 
+def _move_arm(number, pos, feedrate, acceleration, gcode_type):
+
+    if gcode_type == GCODE_TYPE_KLIPPER:
+        lifters = ["lifter1", "lifter2"]
+
+        return "MANUAL_STEPPER STEPPER={lifter} MOVE={pos:.4f} SPEED={feedrate} ACCEL={accel}\n".format(
+            lifter=lifters[number],
+            pos=pos, 
+            feedrate=feedrate, 
+            accel=acceleration
+        )
+
+    if gcode_type == GCODE_TYPE_FLUIDNC:
+        lifters = ["Z", "A"]
+
+        return "G1 {lifter}{pos:.4f} F{feedrate}\n".format(
+            lifter=lifters[number],
+            pos=pos,
+            feedrate=feedrate
+        )
+
+
 def gcode(segments, gcode_type, triple_scrubbing, params={}):
     
     FEEDRATE_X              = 1000
@@ -214,7 +236,10 @@ def gcode(segments, gcode_type, triple_scrubbing, params={}):
         FEEDRATE_Z_LOWER    = 10000
         RAISE_DISTANCE      = 90
     
-    START_CMD              = """
+    MOVEX_CMD               = "G1 X{x:.4f} F{feedrate}\n"
+    MOVEY_CMD               = "G1 Y{y:.4f} F{feedrate}\n"
+
+    START_CMD               = """
 G90                                 
 G21                     
 G28  
@@ -223,53 +248,21 @@ G92 X0 Y0 Z0
 G1 F{feedrate}
 """
 
-    START_CMD_KLIPPER     = """
+    START_CMD_KLIPPER       = """
 MANUAL_STEPPER STEPPER=lifter1 ENABLE=1
 MANUAL_STEPPER STEPPER=lifter1 SET_POSITION=0
 MANUAL_STEPPER STEPPER=lifter2 ENABLE=1
 MANUAL_STEPPER STEPPER=lifter2 SET_POSITION=0
 """
-    
-    MOVEX_CMD             = """
-G1 X{x:.4f} F{feedrate}
-"""
 
-    MOVEY_CMD             = """
-G1 Y{y:.4f} F{feedrate}
-"""
-
-    LOWER_1_CMD_FLUIDNC   = """
-G1 Z{pos:.4f} F{feedrate}
-"""
-
-    RAISE_1_CMD_FLUIDNC   = """
-G1 Z{pos:.4f} F{feedrate}
-"""
-
-    LOWER_1_CMD_KLIPPER   = """
-MANUAL_STEPPER STEPPER=lifter1 MOVE={pos:.4f} SPEED={feedrate} ACCEL={accel}
-"""
-    
-    LOWER_2_CMD_KLIPPER   = """
-MANUAL_STEPPER STEPPER=lifter2 MOVE={pos:.4f} SPEED={feedrate} ACCEL={accel}
-"""
-
-    RAISE_1_CMD_KLIPPER   = """
-MANUAL_STEPPER STEPPER=lifter1 MOVE={pos:.4f} SPEED={feedrate} ACCEL={accel}
-"""
-    
-    RAISE_2_CMD_KLIPPER   = """
-MANUAL_STEPPER STEPPER=lifter2 MOVE={pos:.4f} SPEED={feedrate} ACCEL={accel}
-"""
-
-    END_CMD               = """
+    END_CMD                 = """
 G1 F{feedrate}
 G1 X{x:.4f} 
 G1 Y0 
 G92 X0 Y0 Z0
 """
 
-    END_CMD_KLIPPER        = """
+    END_CMD_KLIPPER         = """
 MANUAL_STEPPER STEPPER=lifter1 ENABLE=0
 MANUAL_STEPPER STEPPER=lifter2 ENABLE=0
 """
@@ -302,10 +295,11 @@ MANUAL_STEPPER STEPPER=lifter2 ENABLE=0
 
     if gcode_type == GCODE_TYPE_KLIPPER:
         f.write(START_CMD_KLIPPER)
-        f.write(RAISE_1_CMD_KLIPPER.format(pos=RAISE_DISTANCE, feedrate=FEEDRATE_Z_RAISE, accel=ACCELERATION_Z))
-        f.write(RAISE_2_CMD_KLIPPER.format(pos=RAISE_DISTANCE, feedrate=FEEDRATE_Z_RAISE, accel=ACCELERATION_Z))
+        f.write(_move_arm(0, RAISE_DISTANCE, FEEDRATE_Z_RAISE, ACCELERATION_Z, GCODE_TYPE_KLIPPER))
+        f.write(_move_arm(1, RAISE_DISTANCE, FEEDRATE_Z_RAISE, ACCELERATION_Z, GCODE_TYPE_KLIPPER))
     elif gcode_type == GCODE_TYPE_FLUIDNC:
-        f.write(RAISE_1_CMD_FLUIDNC.format(pos=RAISE_DISTANCE, feedrate=FEEDRATE_Z_RAISE))
+        f.write(_move_arm(0, RAISE_DISTANCE, FEEDRATE_Z_RAISE, None, GCODE_TYPE_FLUIDNC))
+        f.write(_move_arm(1, RAISE_DISTANCE, FEEDRATE_Z_RAISE, None, GCODE_TYPE_FLUIDNC))
 
     for i in range(len(segments)):
 
@@ -337,22 +331,13 @@ MANUAL_STEPPER STEPPER=lifter2 ENABLE=0
             # LOWER
 
             if raise_after_column:
-                if gcode_type == GCODE_TYPE_KLIPPER:
-                    if s[2] == 1:
-                        f.write(LOWER_1_CMD_KLIPPER.format(
-                            pos=0, feedrate=FEEDRATE_Z_LOWER, accel=ACCELERATION_Z
-                        ))
-                    elif s[2] == 2:
-                        f.write(LOWER_2_CMD_KLIPPER.format(
-                            pos=0, feedrate=FEEDRATE_Z_LOWER, accel=ACCELERATION_Z
-                        ))
-                    else:
-                        raise Exception("unknown lifter head: {}".format(s[2]))
-                elif gcode_type == GCODE_TYPE_FLUIDNC:
-                    f.write(LOWER_1_CMD_FLUIDNC.format(
-                            pos=0, feedrate=FEEDRATE_Z_LOWER
-                    ))
-        
+                if s[2] == 1:
+                    f.write(_move_arm(0, 0, FEEDRATE_Z_LOWER, ACCELERATION_Z, gcode_type))
+                elif s[2] == 2:
+                    f.write(_move_arm(1, 0, FEEDRATE_Z_LOWER, ACCELERATION_Z, gcode_type))
+                else:
+                    raise Exception("unknown lifter head: {}".format(s[2]))
+
             # MOVE
 
             f.write(MOVEY_CMD.format(
@@ -387,21 +372,12 @@ MANUAL_STEPPER STEPPER=lifter2 ENABLE=0
             # RAISE
 
             if raise_after_column:
-                if gcode_type == GCODE_TYPE_KLIPPER:
-                    if s[2] == 1:
-                        f.write(RAISE_1_CMD_KLIPPER.format(
-                            pos=RAISE_DISTANCE, feedrate=FEEDRATE_Z_RAISE, accel=ACCELERATION_Z
-                        ))
-                    elif s[2] == 2:
-                        f.write(RAISE_2_CMD_KLIPPER.format(
-                            pos=RAISE_DISTANCE, feedrate=FEEDRATE_Z_RAISE, accel=ACCELERATION_Z
-                        ))
-                    else:
-                        raise Exception("unknown lifter head: {}".format(s[2]))
-                elif gcode_type == GCODE_TYPE_FLUIDNC:
-                    f.write(RAISE_1_CMD_FLUIDNC.format(
-                            pos=RAISE_DISTANCE, feedrate=FEEDRATE_Z_RAISE
-                    ))
+                if s[2] == 1:
+                    f.write(_move_arm(0, RAISE_DISTANCE, FEEDRATE_Z_RAISE, ACCELERATION_Z, gcode_type))
+                elif s[2] == 2:
+                    f.write(_move_arm(1, RAISE_DISTANCE, FEEDRATE_Z_RAISE, ACCELERATION_Z, gcode_type))
+                else:
+                    raise Exception("unknown lifter head: {}".format(s[2]))
 
     last_line = segments[-1][-1]
     f.write(END_CMD.format(
