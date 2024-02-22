@@ -1,6 +1,6 @@
 from datetime import datetime
 from io import StringIO
-from enum import Enum
+import math
 
 from PIL import Image, ImageOps
 import numpy as np
@@ -13,16 +13,16 @@ GCODE_TYPES = [GCODE_TYPE_KLIPPER, GCODE_TYPE_FLUIDNC]
 
 PEN_DIAMETER        = 15
 OFFSET_LIFTER2      = 37
-GANTRY_LENGTH       = 800 - OFFSET_LIFTER2
+GANTRY_LENGTH       = 800 # 840 - OFFSET_LIFTER2
 RESOLUTION_X        = PEN_DIAMETER
-RESOLUTION_Y        = 1
+RESOLUTION_Y        = 2
 
 # TRIPLE_SCRUBBING    = True
 
 TWO_COLORS          = None
 
 DEBUG_INPUT_IMAGE   = "../test6.png"
-DEBUG_INPUT_IMAGE   = "../HelloWorld_1bit.png"
+DEBUG_INPUT_IMAGE   = "../HelloWorld_long.png"
 
 
 def generate(img, gcode_type=GCODE_TYPE_KLIPPER, triple_scrubbing=False):
@@ -136,8 +136,8 @@ def generate(img, gcode_type=GCODE_TYPE_KLIPPER, triple_scrubbing=False):
 
                     # if lifter2 is used an offset for the Y-axis needs to added
                     if segment[2] == 2:
-                        segment[0][1] += OFFSET_LIFTER2 * RESOLUTION_Y
-                        segment[1][1] += OFFSET_LIFTER2 * RESOLUTION_Y
+                        segment[0][1] += OFFSET_LIFTER2
+                        segment[1][1] += OFFSET_LIFTER2
                     
                     segments_line.append(segment)
 
@@ -153,8 +153,8 @@ def generate(img, gcode_type=GCODE_TYPE_KLIPPER, triple_scrubbing=False):
             segment = [segment_start, [x*RESOLUTION_X, y*RESOLUTION_Y], last_color]
             
             if segment[2] == 2:
-                segment[0][2] += OFFSET_LIFTER2 * RESOLUTION_Y
-                segment[1][2] += OFFSET_LIFTER2 * RESOLUTION_Y
+                segment[0][2] += OFFSET_LIFTER2
+                segment[1][2] += OFFSET_LIFTER2
                     
             segments_line.append(segment)
             segment_start = None
