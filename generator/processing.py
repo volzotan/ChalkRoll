@@ -5,27 +5,51 @@ import math
 from PIL import Image, ImageOps
 import numpy as np
 
-GCODE_TYPE_KLIPPER  = "KLIPPER"
-GCODE_TYPE_FLUIDNC  = "FLUIDNC"
-GCODE_TYPES = [GCODE_TYPE_KLIPPER, GCODE_TYPE_FLUIDNC]
+GCODE_TYPE_KLIPPER      = "MACHINE_KLIPPER"
+GCODE_TYPE_FLUIDNC      = "MACHINE_FLUIDNC"
+GCODE_TYPES             = [GCODE_TYPE_KLIPPER, GCODE_TYPE_FLUIDNC]
+TOOL_TYPE_STICK         = "TOOL_STICK"
+TOOL_TYPE_CAN           = "TOOL_CAN"
+TOOL_TYPES              = [TOOL_TYPE_STICK, TOOL_TYPE_CAN]
 
 # all units in mm
 
-PEN_DIAMETER        = 15
-OFFSET_LIFTER2      = 37
-GANTRY_LENGTH       = 800 # 840 - OFFSET_LIFTER2
-RESOLUTION_X        = PEN_DIAMETER
-RESOLUTION_Y        = 2
+CONFIG_STICK = {
+    "TOOL_NAME"         : "chalk stick",
+    "TOOL_DIAMETER"     : 15,
+    "OFFSET_LIFTER2"    : 37,
+    "GANTRY_LENGTH"     : 800, # 840 - OFFSET_LIFTER2
+    "RESOLUTION_X"      : 15,
+    "RESOLUTION_Y"      : 2,
+}
+
+CONFIG_CAN = {
+    "TOOL_NAME"         : "chalk can",
+    "TOOL_DIAMETER"     : 25,
+    "OFFSET_LIFTER2"    : 50,
+    "GANTRY_LENGTH"     : 750,
+    "RESOLUTION_X"      : 25,
+    "RESOLUTION_Y"      : 10,
+}
 
 # TRIPLE_SCRUBBING    = True
+MAX_DISTANCE_X_OPTIMIZATION = 15
+TWO_COLORS              = None
 
-TWO_COLORS          = None
-
-DEBUG_INPUT_IMAGE   = "../test6.png"
-DEBUG_INPUT_IMAGE   = "../HelloWorld_long.png"
+DEBUG_INPUT_IMAGE       = "../test6.png"
+DEBUG_INPUT_IMAGE       = "../HelloWorld_long.png"
 
 
-def generate(img, gcode_type=GCODE_TYPE_KLIPPER, triple_scrubbing=False):
+def generate(img, gcode_type=GCODE_TYPE_KLIPPER, tool_type=TOOL_TYPE_STICK, triple_scrubbing=False):
+
+    config = None
+
+    if tool_type == TOOL_TYPE_STICK:
+        config = CONFIG_STICK
+    elif tool_type == TOOL_TYPE_CAN:
+        config = CONFIG_CAN
+    else:
+        raise Exception("unknown tool_type: {}".format(tool_type))
 
     # remove alpha channel
 
@@ -86,8 +110,8 @@ def generate(img, gcode_type=GCODE_TYPE_KLIPPER, triple_scrubbing=False):
     #     print("layer {}".format(i))
     #     display(layers[i])
 
-    resize_height = int(GANTRY_LENGTH / RESOLUTION_Y)
-    resize_width = int(img.width / img.height * GANTRY_LENGTH / RESOLUTION_X)
+    resize_height = int(config["GANTRY_LENGTH"] / config["RESOLUTION_Y"])
+    resize_width = int(img.width / img.height * config["GANTRY_LENGTH"] / config["RESOLUTION_X"])
 
     combined_image = np.zeros([resize_height, resize_width], dtype=np.uint8)
     combined_image_debug = np.zeros([resize_height, resize_width, 3], dtype=np.uint8)
@@ -125,36 +149,36 @@ def generate(img, gcode_type=GCODE_TYPE_KLIPPER, triple_scrubbing=False):
 
             if current_color != last_color:
                 if segment_start is None:
-                    segment_start = [x*RESOLUTION_X, y*RESOLUTION_Y]
+                    segment_start = [x*config["RESOLUTION_X"], y*config["RESOLUTION_Y"]]
                 else:
-                    segment = [segment_start, [x*RESOLUTION_X, y*RESOLUTION_Y], last_color]
+                    segment = [segment_start, [x*config["RESOLUTION_X"], y*config["RESOLUTION_Y"]], last_color]
 
                     # ignore very short lines t
                     #segment_length = abs(segment[0][1]-segment[1][1])
-                    #if segment_length >= PEN_DIAMETER:
+                    #if segment_length >= config["TOOL_DIAMETER"]:
                     #    segments_line.append(segment)
 
                     # if lifter2 is used an offset for the Y-axis needs to added
                     if segment[2] == 2:
-                        segment[0][1] += OFFSET_LIFTER2
-                        segment[1][1] += OFFSET_LIFTER2
+                        segment[0][1] += config["OFFSET_LIFTER2"]
+                        segment[1][1] += config["OFFSET_LIFTER2"]
                     
                     segments_line.append(segment)
 
                     if current_color == 0:
                         segment_start = None
                     else:
-                        segment_start = [x*RESOLUTION_X, y*RESOLUTION_Y]
+                        segment_start = [x*config["RESOLUTION_X"], y*config["RESOLUTION_Y"]]
                         
                 last_color = current_color
 
         # column ends but line segment is unfinished
         if segment_start is not None:
-            segment = [segment_start, [x*RESOLUTION_X, y*RESOLUTION_Y], last_color]
+            segment = [segment_start, [x*config["RESOLUTION_X"], y*config["RESOLUTION_Y"]], last_color]
             
             if segment[2] == 2:
-                segment[0][2] += OFFSET_LIFTER2
-                segment[1][2] += OFFSET_LIFTER2
+                segment[0][2] += config["OFFSET_LIFTER2"]
+                segment[1][2] += config["OFFSET_LIFTER2"]
                     
             segments_line.append(segment)
             segment_start = None
@@ -176,7 +200,12 @@ def generate(img, gcode_type=GCODE_TYPE_KLIPPER, triple_scrubbing=False):
             segments_reversed.append(list(reversed([[s[1], s[0], s[2]] for s in line])))
     segments = segments_reversed
 
-    gcode_str = gcode(segments, gcode_type, triple_scrubbing)
+    gcode_str = gcode(
+        segments, 
+        gcode_type, 
+        config, 
+        triple_scrubbing
+    )
 
     output_img = Image.fromarray(combined_image_debug)
     output_img = output_img.resize((
@@ -200,6 +229,8 @@ def write_to_file(filename, gcode):
 
 def _move_arm(number, pos, feedrate, acceleration, gcode_type):
 
+    # return ""
+
     if gcode_type == GCODE_TYPE_KLIPPER:
         lifters = ["lifter1", "lifter2"]
 
@@ -219,8 +250,18 @@ def _move_arm(number, pos, feedrate, acceleration, gcode_type):
             feedrate=feedrate
         )
 
+def _move_servo(number, pos, gcode_type):
 
-def gcode(segments, gcode_type, triple_scrubbing, params={}):
+    if gcode_type == GCODE_TYPE_KLIPPER:
+        servos = ["servo_can1", "servo_can2"]
+
+        return "SET_SERVO SERVO={} ANGLE={}\n".format(
+            servos[number],
+            pos
+        )
+
+
+def gcode(segments, gcode_type, config, triple_scrubbing, params={}):
     
     FEEDRATE_X              = 1000
     FEEDRATE_Y              = 12000
@@ -231,10 +272,14 @@ def gcode(segments, gcode_type, triple_scrubbing, params={}):
 
     if gcode_type == GCODE_TYPE_FLUIDNC:
         FEEDRATE_X          = 2000
-        FEEDRATE_Y          = 12000
+        FEEDRATE_Y          = 22000
         FEEDRATE_Z_RAISE    = 5000
         FEEDRATE_Z_LOWER    = 10000
         RAISE_DISTANCE      = 90
+
+    SERVO_POS_WRITE         = 70
+    SERVO_POS_IDLE          = 0
+
     
     MOVEX_CMD               = "G1 X{x:.4f} F{feedrate}\n"
     MOVEY_CMD               = "G1 Y{y:.4f} F{feedrate}\n"
@@ -271,7 +316,8 @@ MANUAL_STEPPER STEPPER=lifter2 ENABLE=0
 
     _write_gcode_comment(f, gcode_type, "ChalkRoll --- date: {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
     _write_gcode_comment(f, gcode_type, "gcode type: {}".format(gcode_type))
-    _write_gcode_comment(f, gcode_type, "gantry length: {}mm".format(GANTRY_LENGTH))
+    _write_gcode_comment(f, gcode_type, "tool type: {}".format(config["TOOL_NAME"]))
+    _write_gcode_comment(f, gcode_type, "gantry length: {}mm".format(config["GANTRY_LENGTH"]))
     if gcode_type == GCODE_TYPE_KLIPPER:
         _write_gcode_comment(f, gcode_type, "feedrate: X {} | Y {} | Z ^{} °{} @ {} mm/sec".format(
             FEEDRATE_X, 
@@ -295,11 +341,14 @@ MANUAL_STEPPER STEPPER=lifter2 ENABLE=0
 
     if gcode_type == GCODE_TYPE_KLIPPER:
         f.write(START_CMD_KLIPPER)
-        f.write(_move_arm(0, RAISE_DISTANCE, FEEDRATE_Z_RAISE, ACCELERATION_Z, GCODE_TYPE_KLIPPER))
-        f.write(_move_arm(1, RAISE_DISTANCE, FEEDRATE_Z_RAISE, ACCELERATION_Z, GCODE_TYPE_KLIPPER))
+        if config == CONFIG_STICK:
+            f.write(_move_arm(0, RAISE_DISTANCE, FEEDRATE_Z_RAISE, ACCELERATION_Z, GCODE_TYPE_KLIPPER))
+            f.write(_move_arm(1, RAISE_DISTANCE, FEEDRATE_Z_RAISE, ACCELERATION_Z, GCODE_TYPE_KLIPPER))
+
     elif gcode_type == GCODE_TYPE_FLUIDNC:
-        f.write(_move_arm(0, RAISE_DISTANCE, FEEDRATE_Z_RAISE, None, GCODE_TYPE_FLUIDNC))
-        f.write(_move_arm(1, RAISE_DISTANCE, FEEDRATE_Z_RAISE, None, GCODE_TYPE_FLUIDNC))
+        if config == CONFIG_STICK:
+            f.write(_move_arm(0, RAISE_DISTANCE, FEEDRATE_Z_RAISE, None, GCODE_TYPE_FLUIDNC))
+            f.write(_move_arm(1, RAISE_DISTANCE, FEEDRATE_Z_RAISE, None, GCODE_TYPE_FLUIDNC))
 
     for i in range(len(segments)):
 
@@ -330,13 +379,21 @@ MANUAL_STEPPER STEPPER=lifter2 ENABLE=0
 
             # LOWER
 
-            if raise_after_column:
+            if config == CONFIG_STICK:
+                if raise_after_column:
+                    if s[2] == 1:
+                        f.write(_move_arm(0, 0, FEEDRATE_Z_LOWER, ACCELERATION_Z, gcode_type))
+                    elif s[2] == 2:
+                        f.write(_move_arm(1, 0, FEEDRATE_Z_LOWER, ACCELERATION_Z, gcode_type))
+                    else:
+                        raise Exception("unknown lifter head: {}".format(s[2]))
+            if config == CONFIG_CAN:
                 if s[2] == 1:
-                    f.write(_move_arm(0, 0, FEEDRATE_Z_LOWER, ACCELERATION_Z, gcode_type))
+                    f.write(_move_servo(0, SERVO_POS_WRITE, gcode_type))
                 elif s[2] == 2:
-                    f.write(_move_arm(1, 0, FEEDRATE_Z_LOWER, ACCELERATION_Z, gcode_type))
+                    f.write(_move_servo(1, SERVO_POS_WRITE, gcode_type))
                 else:
-                    raise Exception("unknown lifter head: {}".format(s[2]))
+                    raise Exception("unknown can servo: {}".format(s[2]))
 
             # MOVE
 
@@ -363,7 +420,7 @@ MANUAL_STEPPER STEPPER=lifter2 ENABLE=0
                     diff_X = abs(s[1][0] - next_column[0][0][0])
                     # and first segment in next column starts at same Y coordinate
                     diff_Y = abs(s[1][1] - next_column[0][0][1])
-                    if diff_X <= PEN_DIAMETER and diff_Y < PEN_DIAMETER:
+                    if diff_X <= MAX_DISTANCE_X_OPTIMIZATION and diff_Y < MAX_DISTANCE_X_OPTIMIZATION:
                         # and with the same color
                         if s[2] == next_column[0][2]:
                             # do not raise
@@ -371,13 +428,21 @@ MANUAL_STEPPER STEPPER=lifter2 ENABLE=0
 
             # RAISE
 
-            if raise_after_column:
+            if config == CONFIG_STICK:
+                if raise_after_column:
+                    if s[2] == 1:
+                        f.write(_move_arm(0, RAISE_DISTANCE, FEEDRATE_Z_RAISE, ACCELERATION_Z, gcode_type))
+                    elif s[2] == 2:
+                        f.write(_move_arm(1, RAISE_DISTANCE, FEEDRATE_Z_RAISE, ACCELERATION_Z, gcode_type))
+                    else:
+                        raise Exception("unknown lifter head: {}".format(s[2]))
+            if config == CONFIG_CAN:
                 if s[2] == 1:
-                    f.write(_move_arm(0, RAISE_DISTANCE, FEEDRATE_Z_RAISE, ACCELERATION_Z, gcode_type))
+                    f.write(_move_servo(0, SERVO_POS_IDLE, gcode_type))
                 elif s[2] == 2:
-                    f.write(_move_arm(1, RAISE_DISTANCE, FEEDRATE_Z_RAISE, ACCELERATION_Z, gcode_type))
+                    f.write(_move_servo(1, SERVO_POS_IDLE, gcode_type))
                 else:
-                    raise Exception("unknown lifter head: {}".format(s[2]))
+                    raise Exception("unknown can servo: {}".format(s[2]))
 
     last_line = segments[-1][-1]
     f.write(END_CMD.format(

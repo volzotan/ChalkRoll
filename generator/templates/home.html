@@ -23,12 +23,24 @@
     <fieldset>
       <legend>Machine type:</legend>
       <div>
-        <input type="radio" id="radio_klipper" name="machine_type" value="klipper" checked />
+        <input type="radio" id="radio_klipper" name="machine_type" value="machine_klipper" checked />
         <label for="radio_klipper">Klipper</label>
       </div>
       <div>
-        <input type="radio" id="radio_fluidnc" name="machine_type" value="fluidnc" />
+        <input type="radio" id="radio_fluidnc" name="machine_type" value="machine_fluidnc" />
         <label for="radio_fluidnc">FluidNC</label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Chalk type:</legend>
+      <div>
+        <input type="radio" id="radio_stick" name="tool_type" value="tool_stick" checked />
+        <label for="radio_stick">Stick</label>
+      </div>
+      <div>
+        <input type="radio" id="radio_can" name="tool_type" value="tool_can" />
+        <label for="radio_can">Spray can</label>
       </div>
     </fieldset>
 
