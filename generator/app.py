@@ -26,19 +26,36 @@ def upload():
     try:
 
         uploaded_filename = request.files["image"].filename
-
         uploaded_image = request.files["image"].read()
+
+        if len(uploaded_image) == 0:
+            raise Exception("image missing")
+
         uploaded_image = Image.open(io.BytesIO(uploaded_image))
 
         machine_type = request.form["machine_type"].upper()
         if not machine_type in processing.GCODE_TYPES:
             raise Exception("unknown machine_type: {}".format(machine_type))
 
+        tool_type = request.form["tool_type"].upper()
+        if not tool_type in processing.TOOL_TYPES:
+            raise Exception("unknown tool_type: {}".format(tool_type))
+
         option_triplescrubbing = False
         if "triplescrubbing" in request.form and request.form["triplescrubbing"].upper() in ["TRUE", "1"]:
             option_triplescrubbing = True
 
-        result = processing.generate(uploaded_image, gcode_type=machine_type, triple_scrubbing=option_triplescrubbing)
+        option_highspeed = False
+        if "highspeed" in request.form and request.form["highspeed"].upper() in ["TRUE", "1"]:
+            option_highspeed = True
+
+        result = processing.generate(
+            uploaded_image, 
+            gcode_type=machine_type, 
+            tool_type=tool_type, 
+            triple_scrubbing=option_triplescrubbing,
+            highspeed=option_highspeed
+        )
         
         img = result["image"]
 
@@ -48,7 +65,11 @@ def upload():
 
         gcode_base64 = base64.b64encode(bytearray(result["gcode"], "utf-8"))
 
-        gcode_filename = Path(uploaded_filename).stem + ".gcode"
+        gcode_filename = "{}_{}_{}.gcode".format(
+            Path(uploaded_filename).stem,
+            machine_type,
+            tool_type
+        )
 
         data = {
             "image_filename": uploaded_filename,

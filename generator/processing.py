@@ -25,10 +25,10 @@ CONFIG_STICK = {
 
 CONFIG_CAN = {
     "TOOL_NAME"         : "chalk can",
-    "TOOL_DIAMETER"     : 25,
+    "TOOL_DIAMETER"     : 40,
     "OFFSET_LIFTER2"    : 50,
-    "GANTRY_LENGTH"     : 750,
-    "RESOLUTION_X"      : 25,
+    "GANTRY_LENGTH"     : 800,
+    "RESOLUTION_X"      : 40,
     "RESOLUTION_Y"      : 10,
 }
 
@@ -40,7 +40,7 @@ DEBUG_INPUT_IMAGE       = "../test6.png"
 DEBUG_INPUT_IMAGE       = "../HelloWorld_long.png"
 
 
-def generate(img, gcode_type=GCODE_TYPE_KLIPPER, tool_type=TOOL_TYPE_STICK, triple_scrubbing=False):
+def generate(img, gcode_type=GCODE_TYPE_KLIPPER, tool_type=TOOL_TYPE_STICK, triple_scrubbing=False, highspeed=False):
 
     config = None
 
@@ -204,7 +204,8 @@ def generate(img, gcode_type=GCODE_TYPE_KLIPPER, tool_type=TOOL_TYPE_STICK, trip
         segments, 
         gcode_type, 
         config, 
-        triple_scrubbing
+        triple_scrubbing,
+        highspeed
     )
 
     output_img = Image.fromarray(combined_image_debug)
@@ -255,16 +256,30 @@ def _move_servo(number, pos, gcode_type):
     if gcode_type == GCODE_TYPE_KLIPPER:
         servos = ["servo_can1", "servo_can2"]
 
-        return "SET_SERVO SERVO={} ANGLE={}\n".format(
+        servo_wait = 50
+        if pos == 0:
+            servo_wait = 0
+
+        return "SET_SERVO SERVO={} ANGLE={}\nG4 P{}\n".format(
+            servos[number],
+            pos,
+            servo_wait
+        )
+
+    if gcode_type == GCODE_TYPE_FLUIDNC:
+        servos = ["Z", "A"]
+
+        return "G1 {}{}\n".format(
             servos[number],
             pos
         )
 
+        # return "\n"
 
-def gcode(segments, gcode_type, config, triple_scrubbing, params={}):
+def gcode(segments, gcode_type, config, triple_scrubbing, highspeed, params={}):
     
     FEEDRATE_X              = 1000
-    FEEDRATE_Y              = 12000
+    FEEDRATE_Y              = 22000
     FEEDRATE_Z_RAISE        = 800
     FEEDRATE_Z_LOWER        = 10000
     ACCELERATION_Z          = 100
@@ -277,7 +292,11 @@ def gcode(segments, gcode_type, config, triple_scrubbing, params={}):
         FEEDRATE_Z_LOWER    = 10000
         RAISE_DISTANCE      = 90
 
-    SERVO_POS_WRITE         = 70
+    if highspeed:
+        FEEDRATE_X          = 3000
+        FEEDRATE_Y          = 45000
+
+    SERVO_POS_WRITE         = 130
     SERVO_POS_IDLE          = 0
 
     
