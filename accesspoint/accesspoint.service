@@ -1,0 +1,21 @@
+# save as /etc/systemd/system/accesspoint.service
+
+[Unit]
+Description=AP Service
+DefaultDependencies=no
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/accesspoint
+ExecStart=python3 /home/pi/accesspoint/accesspoint.py
+
+SyslogIdentifier=apservice
+StandardOutput=syslog
+StandardError=syslog
+
+Restart=no
+
+[Install]
+WantedBy=multi-user.target
