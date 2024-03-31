@@ -76,7 +76,8 @@ def upload():
             "preview_image_data": img_base64.decode("utf-8"),
             "gcode_filename": gcode_filename,
             "gcode": result["gcode"],
-            "gcode_base64": gcode_base64.decode("utf-8")
+            "gcode_base64": gcode_base64.decode("utf-8"),
+            "stats": result["stats"]
         }
 
         return render_template("result.html", data=data)

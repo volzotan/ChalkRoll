@@ -2,7 +2,7 @@ from datetime import datetime
 from io import StringIO
 import math
 
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, ImageDraw
 import numpy as np
 
 GCODE_TYPE_KLIPPER      = "MACHINE_KLIPPER"
@@ -133,7 +133,7 @@ def generate(img, gcode_type=GCODE_TYPE_KLIPPER, tool_type=TOOL_TYPE_STICK, trip
         combined_image_debug[layer_array > 0] = color
 
     # PIL coordinate system is top-left, CNC coordinate system is bottom-left, so
-    # we need flip the image in the Y direction to invert the axis
+    # we need flip the image along the X axis to invert Y coordinates
     combined_image = np.flip(combined_image, axis=0)
 
     segments = []
@@ -186,11 +186,6 @@ def generate(img, gcode_type=GCODE_TYPE_KLIPPER, tool_type=TOOL_TYPE_STICK, trip
         if len(segments_line) > 0:
             segments.append(segments_line)
 
-    #for l in segments:
-    #    for s in l:
-    #        print(s)
-    #    print("---")
-
     segments_reversed = []
     for i in range(len(segments)):
         line = segments[i]
@@ -200,6 +195,18 @@ def generate(img, gcode_type=GCODE_TYPE_KLIPPER, tool_type=TOOL_TYPE_STICK, trip
             segments_reversed.append(list(reversed([[s[1], s[0], s[2]] for s in line])))
     segments = segments_reversed
 
+    total_distance = 0
+    for segments_line in segments:
+        for s in segments_line:
+            total_distance += abs((s[1][1] - s[0][1]))
+
+    workspace_dimensions = [resize_width * config["RESOLUTION_X"], resize_height * config["RESOLUTION_Y"]]
+
+    stats = {
+        "workspace_dimensions": workspace_dimensions,
+        "total_distance": total_distance
+    }
+
     gcode_str = gcode(
         segments, 
         gcode_type, 
@@ -208,18 +215,63 @@ def generate(img, gcode_type=GCODE_TYPE_KLIPPER, tool_type=TOOL_TYPE_STICK, trip
         highspeed
     )
 
-    output_img = Image.fromarray(combined_image_debug)
-    output_img = output_img.resize((
-        int(600*img.width/img.height), 
-        int(600)
-    ), resample=Image.Resampling.NEAREST)
+    # visualize: combine the distorted images from processing and resize to a 
+    # resonable size to present them as a preview
+    # output_img = Image.fromarray(combined_image_debug)
+    # output_img = output_img.resize((
+    #     int(600*img.width/img.height), 
+    #     int(600)
+    # ), resample=Image.Resampling.NEAREST)
+
+    # visualize: or rather use an empty image and draw just the toolpaths
+    output_img = Image.new("RGB", [int(600*img.width/img.height), int(600)])
+    output_img = draw_toolpaths(
+        output_img, 
+        segments, 
+        config["GANTRY_LENGTH"],
+        config["TOOL_DIAMETER"],
+        config["OFFSET_LIFTER2"])
 
     return {
         "image": output_img,
-        "gcode": gcode_str
+        "gcode": gcode_str, 
+        "stats": stats
     }
 
-    # print("number of lines: {}".format(len(segments)))
+
+def draw_toolpaths(base_img, segments, scaling, tool_diameter, offset_lifter):
+
+    draw = ImageDraw.Draw(base_img)
+
+    scaling_y = (1.0 / scaling) * base_img.height
+    scaling_x = scaling_y
+
+    fills = [(255, 255, 255), (255, 0, 0), (0, 255, 0)]
+    line_width = int(tool_diameter*0.5)
+
+    for segments_line in segments:
+        for s in segments_line:
+
+            offset = 0
+            if s[2] == 2:
+                offset = offset_lifter
+
+            draw.line((
+                    (s[0][0] + tool_diameter/2.0) * scaling_x, base_img.height - (s[0][1] - offset) * scaling_y, 
+                    (s[1][0] + tool_diameter/2.0) * scaling_x, base_img.height - (s[1][1] - offset) * scaling_y
+                ), fill=fills[s[2]], width=line_width)
+
+            draw.ellipse((
+                    (s[0][0] + tool_diameter/2.0 - line_width/2.0) * scaling_x,  base_img.height - (s[0][1] - offset + line_width/2.0) * scaling_y, 
+                    (s[0][0] + tool_diameter/2.0 + line_width/2.0) * scaling_x,  base_img.height - (s[0][1] - offset - line_width/2.0) * scaling_y
+                ), fill=fills[s[2]], width=-1)
+
+            draw.ellipse((
+                    (s[1][0] + tool_diameter/2.0 - line_width/2.0) * scaling_x,  base_img.height - (s[1][1] - offset + line_width/2.0) * scaling_y, 
+                    (s[1][0] + tool_diameter/2.0 + line_width/2.0) * scaling_x,  base_img.height - (s[1][1] - offset - line_width/2.0) * scaling_y
+                ), fill=fills[s[2]], width=-1)
+
+    return base_img
 
 
 def write_to_file(filename, gcode):
@@ -493,4 +545,5 @@ def _write_gcode_comment(f, gcode_type, msg):
 
 if __name__ == "__main__":
     result = generate(Image.open(DEBUG_INPUT_IMAGE), gcode_type=GCODE_TYPE_FLUIDNC)
+    print(result)
     write_to_file("output.gcode", result["gcode"])
