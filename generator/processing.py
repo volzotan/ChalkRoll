@@ -25,11 +25,11 @@ CONFIG_STICK = {
 
 CONFIG_CAN = {
     "TOOL_NAME"         : "chalk can",
-    "TOOL_DIAMETER"     : 40,
+    "TOOL_DIAMETER"     : 32,
     "OFFSET_LIFTER2"    : 50,
     "GANTRY_LENGTH"     : 800,
-    "RESOLUTION_X"      : 40,
-    "RESOLUTION_Y"      : 10,
+    "RESOLUTION_X"      : 32,
+    "RESOLUTION_Y"      : 1,
 }
 
 # TRIPLE_SCRUBBING    = True
@@ -247,7 +247,7 @@ def draw_toolpaths(base_img, segments, scaling, tool_diameter, offset_lifter):
     scaling_x = scaling_y
 
     fills = [(255, 255, 255), (255, 0, 0), (0, 255, 0)]
-    line_width = int(tool_diameter*0.5)
+    line_width = int(tool_diameter*0.6)
 
     for segments_line in segments:
         for s in segments_line:
@@ -308,15 +308,18 @@ def _move_servo(number, pos, gcode_type):
     if gcode_type == GCODE_TYPE_KLIPPER:
         servos = ["servo_can1", "servo_can2"]
 
-        servo_wait = 50
+        servo_wait = 200
+        cmd = ""
+
         if pos == 0:
             servo_wait = 0
 
-        return "SET_SERVO SERVO={} ANGLE={}\nG4 P{}\n".format(
-            servos[number],
-            pos,
-            servo_wait
-        )
+        cmd += "SET_SERVO SERVO={} ANGLE={}\n".format(servos[number], pos)
+
+        if servo_wait > 0:
+            cmd += "G4 P{}\n".format(servo_wait)
+
+        return cmd
 
     if gcode_type == GCODE_TYPE_FLUIDNC:
         servos = ["Z", "A"]
@@ -326,15 +329,15 @@ def _move_servo(number, pos, gcode_type):
             pos
         )
 
-        # return "\n"
 
 def gcode(segments, gcode_type, config, triple_scrubbing, highspeed, params={}):
     
     FEEDRATE_X              = 1000
     FEEDRATE_Y              = 22000
-    FEEDRATE_Z_RAISE        = 800
-    FEEDRATE_Z_LOWER        = 10000
-    ACCELERATION_Z          = 100
+    FEEDRATE_Z_RAISE        = 1000
+    FEEDRATE_Z_LOWER        = 2000
+    ACCELERATION_Z_RAISE    = 100
+    ACCELERATION_Z_LOWER    = 800
     RAISE_DISTANCE          = 20
 
     if gcode_type == GCODE_TYPE_FLUIDNC:
@@ -364,24 +367,29 @@ G92 X0 Y0 Z0
 G1 F{feedrate}
 """
 
-    START_CMD_KLIPPER       = """
+    START_CMD_KLIPPER_TOOL_STICK    = """
 MANUAL_STEPPER STEPPER=lifter1 ENABLE=1
 MANUAL_STEPPER STEPPER=lifter1 SET_POSITION=0
 MANUAL_STEPPER STEPPER=lifter2 ENABLE=1
 MANUAL_STEPPER STEPPER=lifter2 SET_POSITION=0
 """
 
-    END_CMD                 = """
+    START_CMD_KLIPPER_TOOL_CAN      = """"""
+
+    END_CMD                         = """
 G1 F{feedrate}
 G1 X{x:.4f} 
 G1 Y0 
 G92 X0 Y0 Z0
 """
 
-    END_CMD_KLIPPER         = """
+    END_CMD_KLIPPER_TOOL_STICK      = """
 MANUAL_STEPPER STEPPER=lifter1 ENABLE=0
 MANUAL_STEPPER STEPPER=lifter2 ENABLE=0
 """
+
+    END_CMD_KLIPPER_TOOL_CAN        = """"""
+
     
     f = StringIO()
 
@@ -395,7 +403,7 @@ MANUAL_STEPPER STEPPER=lifter2 ENABLE=0
             FEEDRATE_Y, 
             FEEDRATE_Z_RAISE, 
             FEEDRATE_Z_LOWER,
-            ACCELERATION_Z
+            ACCELERATION_Z_RAISE
         ))
     elif gcode_type == GCODE_TYPE_FLUIDNC:
         _write_gcode_comment(f, gcode_type, "feedrate: X {} | Y {} | Z ^{} °{}".format(
@@ -411,10 +419,12 @@ MANUAL_STEPPER STEPPER=lifter2 ENABLE=0
     f.write(START_CMD.format(feedrate=FEEDRATE_X))
 
     if gcode_type == GCODE_TYPE_KLIPPER:
-        f.write(START_CMD_KLIPPER)
         if config == CONFIG_STICK:
-            f.write(_move_arm(0, RAISE_DISTANCE, FEEDRATE_Z_RAISE, ACCELERATION_Z, GCODE_TYPE_KLIPPER))
-            f.write(_move_arm(1, RAISE_DISTANCE, FEEDRATE_Z_RAISE, ACCELERATION_Z, GCODE_TYPE_KLIPPER))
+            f.write(START_CMD_KLIPPER_TOOL_STICK)
+            f.write(_move_arm(0, RAISE_DISTANCE, FEEDRATE_Z_RAISE, ACCELERATION_Z_RAISE, GCODE_TYPE_KLIPPER))
+            f.write(_move_arm(1, RAISE_DISTANCE, FEEDRATE_Z_RAISE, ACCELERATION_Z_RAISE, GCODE_TYPE_KLIPPER))
+        if config == CONFIG_CAN:
+            f.write(START_CMD_KLIPPER_TOOL_CAN)
 
     elif gcode_type == GCODE_TYPE_FLUIDNC:
         if config == CONFIG_STICK:
@@ -453,9 +463,9 @@ MANUAL_STEPPER STEPPER=lifter2 ENABLE=0
             if config == CONFIG_STICK:
                 if raise_after_column:
                     if s[2] == 1:
-                        f.write(_move_arm(0, 0, FEEDRATE_Z_LOWER, ACCELERATION_Z, gcode_type))
+                        f.write(_move_arm(0, 0, FEEDRATE_Z_LOWER, ACCELERATION_Z_LOWER, gcode_type))
                     elif s[2] == 2:
-                        f.write(_move_arm(1, 0, FEEDRATE_Z_LOWER, ACCELERATION_Z, gcode_type))
+                        f.write(_move_arm(1, 0, FEEDRATE_Z_LOWER, ACCELERATION_Z_LOWER, gcode_type))
                     else:
                         raise Exception("unknown lifter head: {}".format(s[2]))
             if config == CONFIG_CAN:
@@ -502,9 +512,9 @@ MANUAL_STEPPER STEPPER=lifter2 ENABLE=0
             if config == CONFIG_STICK:
                 if raise_after_column:
                     if s[2] == 1:
-                        f.write(_move_arm(0, RAISE_DISTANCE, FEEDRATE_Z_RAISE, ACCELERATION_Z, gcode_type))
+                        f.write(_move_arm(0, RAISE_DISTANCE, FEEDRATE_Z_RAISE, ACCELERATION_Z_RAISE, gcode_type))
                     elif s[2] == 2:
-                        f.write(_move_arm(1, RAISE_DISTANCE, FEEDRATE_Z_RAISE, ACCELERATION_Z, gcode_type))
+                        f.write(_move_arm(1, RAISE_DISTANCE, FEEDRATE_Z_RAISE, ACCELERATION_Z_RAISE, gcode_type))
                     else:
                         raise Exception("unknown lifter head: {}".format(s[2]))
             if config == CONFIG_CAN:
@@ -522,7 +532,10 @@ MANUAL_STEPPER STEPPER=lifter2 ENABLE=0
     ))
 
     if gcode_type == GCODE_TYPE_KLIPPER:
-        f.write(END_CMD_KLIPPER)
+        if config == CONFIG_STICK:
+            f.write(END_CMD_KLIPPER_TOOL_STICK)
+        if config == CONFIG_CAN:
+            f.write(END_CMD_KLIPPER_TOOL_CAN)
     elif gcode_type == GCODE_TYPE_FLUIDNC:
         pass
 

@@ -1,1 +1,3 @@
 generator/venv/*
+font_source/venv/*
+font_source/tmp/*

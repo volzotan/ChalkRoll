@@ -8,27 +8,27 @@
   <a href="/">&lt; Back</a>
   <hgroup>
     <h1>Preview Image</h1>
-    <h2>{{ data.image_filename }}</h2>
   </hgroup>
 </header>
 
 <main>
 
-  <figure>
-    <a href="data:image/png;base64,{{ data.preview_image_data }}">
-      <img src="data:image/png;base64,{{ data.preview_image_data }}" />
-    </a>
-  </figure>
+  <a href="data:image/png;base64,{{ data.preview_image_data }}">
+    <img src="data:image/png;base64,{{ data.preview_image_data }}" />
+  </a>
   
   <table>
-    <caption><h3>Details</h3></caption>
-    <tbody>
+    <tbody>      
       <tr>
-        <td>Workspace:</td>
+        <td>Filename</td>
+        <td>{{ data.image_filename }}</td>
+      </tr>
+      <tr>
+        <td>Workspace</td>
         <td>{{ data.stats.workspace_dimensions[0]/10.0 }} x {{ data.stats.workspace_dimensions[1]/10.0 }} cm</td>
       </tr>
       <tr>
-        <td>Total drawing distance:</td>
+        <td>Total drawing distance</td>
         <td>{{ data.stats.total_distance/1000.0 }} m</td>
       </tr>
     </tbody>
