@@ -36,6 +36,10 @@ CONFIG_CAN = {
 MAX_DISTANCE_X_OPTIMIZATION = 15
 TWO_COLORS              = None
 
+SERVO_POS_WRITE         = 80
+SERVO_POS_IDLE          = 0
+SERVO_WAIT_TIME         = 150
+
 DEBUG_INPUT_IMAGE       = "../test6.png"
 DEBUG_INPUT_IMAGE       = "../HelloWorld_long.png"
 
@@ -308,7 +312,7 @@ def _move_servo(number, pos, gcode_type):
     if gcode_type == GCODE_TYPE_KLIPPER:
         servos = ["servo_can1", "servo_can2"]
 
-        servo_wait = 200
+        servo_wait = SERVO_WAIT_TIME
         cmd = ""
 
         if pos == 0:
@@ -350,10 +354,6 @@ def gcode(segments, gcode_type, config, triple_scrubbing, highspeed, params={}):
     if highspeed:
         FEEDRATE_X          = 3000
         FEEDRATE_Y          = 45000
-
-    SERVO_POS_WRITE         = 130
-    SERVO_POS_IDLE          = 0
-
     
     MOVEX_CMD               = "G1 X{x:.4f} F{feedrate}\n"
     MOVEY_CMD               = "G1 Y{y:.4f} F{feedrate}\n"
