@@ -1,22 +1,16 @@
 from dataclasses import dataclass
+from enum import Enum
 from datetime import datetime
 from io import StringIO
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 from PIL import Image, ImageOps, ImageDraw
 import numpy as np
 
-GCODE_TYPE_KLIPPER = "MACHINE_KLIPPER"
-GCODE_TYPE_FLUIDNC = "MACHINE_FLUIDNC"
-GCODE_TYPES = [GCODE_TYPE_KLIPPER, GCODE_TYPE_FLUIDNC]
-TOOL_TYPE_STICK = "TOOL_STICK"
-TOOL_TYPE_CAN = "TOOL_CAN"
-TOOL_TYPES = [TOOL_TYPE_STICK, TOOL_TYPE_CAN]
-
 # all units in mm
 
-CONFIG_STICK: Dict[str, str | float] = {
+CONFIG_STICK: dict[str, str | float] = {
     "TOOL_NAME": "chalk stick",
     "TOOL_DIAMETER": 15,
     "OFFSET_LIFTER2": 37,
@@ -25,7 +19,7 @@ CONFIG_STICK: Dict[str, str | float] = {
     "RESOLUTION_Y": 2,
 }
 
-CONFIG_CAN: Dict[str, str | float] = {
+CONFIG_CAN: dict[str, str | float] = {
     "TOOL_NAME": "chalk can",
     "TOOL_DIAMETER": 32,
     "OFFSET_LIFTER2": 50,
@@ -45,6 +39,17 @@ SERVO_WAIT_TIME = 150
 DEBUG_INPUT_IMAGE = "../test6.png"
 DEBUG_INPUT_IMAGE = "../HelloWorld_long.png"
 
+
+class Gcode_type(Enum):
+    KLIPPER = "MACHINE_KLIPPER"
+    FLUIDNC = "MACHINE_FLUIDNC"
+
+
+class Tool_type(Enum):
+    STICK = "TOOL_STICK"
+    CAN = "TOOL_CAN"
+
+
 @dataclass
 class Line:
     x1: float
@@ -61,15 +66,15 @@ class Line:
 
 
 def generate(img: Any,
-             gcode_type: str = GCODE_TYPE_KLIPPER,
-             tool_type: str = TOOL_TYPE_STICK,
+             gcode_type: Gcode_type = Gcode_type.KLIPPER,
+             tool_type: Tool_type = Tool_type.STICK,
              triple_scrubbing: bool = False,
-             highspeed: bool = False) -> Dict[str, Any]:
-    config: Dict[str, str | float | int] = {}
+             highspeed: bool = False) -> dict[str, Any]:
+    config: dict[str, str | float | int] = {}
 
-    if tool_type == TOOL_TYPE_STICK:
+    if tool_type == Tool_type.STICK:
         config = CONFIG_STICK
-    elif tool_type == TOOL_TYPE_CAN:
+    elif tool_type == Tool_type.CAN:
         config = CONFIG_CAN
     else:
         raise Exception("unknown tool_type: {}".format(tool_type))
@@ -158,10 +163,10 @@ def generate(img: Any,
     # we need flip the image along the X axis to invert Y coordinates
     combined_image = np.flip(combined_image, axis=0)
 
-    segments: List[List[Line]] = []
-    segment_start: List[float] | None = None
+    segments: list[list[Line]] = []
+    segment_start: list[float] | None = None
     for x in range(combined_image.shape[1]):
-        segments_line: List[Line] = []
+        segments_line: list[Line] = []
         segment_start = None
         last_color: int = 0
 
@@ -273,7 +278,7 @@ def generate(img: Any,
     }
 
 
-def draw_toolpaths(base_img: Any, segments: List[List[Line]], scaling: float, tool_diameter: float,
+def draw_toolpaths(base_img: Any, segments: list[list[Line]], scaling: float, tool_diameter: float,
                    offset_lifter: float) -> Any:
     draw = ImageDraw.Draw(base_img)
 
@@ -317,10 +322,10 @@ def write_to_file(filename: Path, gcode: str):
         f.write(gcode)
 
 
-def _move_arm(number: int, pos: float, feedrate: float, acceleration: float | None, gcode_type: str) -> str:
+def _move_arm(number: int, pos: float, feedrate: float, acceleration: float | None, gcode_type: Gcode_type) -> str:
     # return ""
 
-    if gcode_type == GCODE_TYPE_KLIPPER:
+    if gcode_type == Gcode_type.KLIPPER:
         lifters = ["lifter1", "lifter2"]
 
         return "MANUAL_STEPPER STEPPER={lifter} MOVE={pos:.4f} SPEED={feedrate} ACCEL={accel}\n".format(
@@ -330,7 +335,7 @@ def _move_arm(number: int, pos: float, feedrate: float, acceleration: float | No
             accel=acceleration
         )
 
-    if gcode_type == GCODE_TYPE_FLUIDNC:
+    if gcode_type == Gcode_type.FLUIDNC:
         lifters = ["Z", "A"]
 
         return "G1 {lifter}{pos:.4f} F{feedrate}\n".format(
@@ -340,8 +345,8 @@ def _move_arm(number: int, pos: float, feedrate: float, acceleration: float | No
         )
 
 
-def _move_servo(number: int, pos: float, gcode_type: str) -> str:
-    if gcode_type == GCODE_TYPE_KLIPPER:
+def _move_servo(number: int, pos: float, gcode_type: Gcode_type) -> str:
+    if gcode_type == Gcode_type.KLIPPER:
         servos = ["servo_can1", "servo_can2"]
 
         servo_wait = SERVO_WAIT_TIME
@@ -357,7 +362,7 @@ def _move_servo(number: int, pos: float, gcode_type: str) -> str:
 
         return cmd
 
-    if gcode_type == GCODE_TYPE_FLUIDNC:
+    if gcode_type == Gcode_type.FLUIDNC:
         servos = ["Z", "A"]
 
         return "G1 {}{}\n".format(
@@ -366,8 +371,9 @@ def _move_servo(number: int, pos: float, gcode_type: str) -> str:
         )
 
 
-def gcode(segments: List[List[Line]], gcode_type: str, config: Dict[str, Any],
+def gcode(segments: list[list[Line]], gcode_type: Gcode_type, config: dict[str, Any],
           triple_scrubbing: bool, highspeed: bool, params={}) -> str:
+
     FEEDRATE_X = 1000
     FEEDRATE_Y = 22000
     FEEDRATE_Z_RAISE = 1000
@@ -376,7 +382,7 @@ def gcode(segments: List[List[Line]], gcode_type: str, config: Dict[str, Any],
     ACCELERATION_Z_LOWER = 800
     RAISE_DISTANCE = 20
 
-    if gcode_type == GCODE_TYPE_FLUIDNC:
+    if gcode_type == Gcode_type.FLUIDNC:
         FEEDRATE_X = 2000
         FEEDRATE_Y = 22000
         FEEDRATE_Z_RAISE = 5000
@@ -428,7 +434,7 @@ MANUAL_STEPPER STEPPER=lifter2 ENABLE=0
     _write_gcode_comment(f, gcode_type, "gcode type: {}".format(gcode_type))
     _write_gcode_comment(f, gcode_type, "tool type: {}".format(config["TOOL_NAME"]))
     _write_gcode_comment(f, gcode_type, "gantry length: {}mm".format(config["GANTRY_LENGTH"]))
-    if gcode_type == GCODE_TYPE_KLIPPER:
+    if gcode_type == Gcode_type.KLIPPER:
         _write_gcode_comment(f, gcode_type, "feedrate: X {} | Y {} | Z ^{} °{} @ {} mm/sec".format(
             FEEDRATE_X,
             FEEDRATE_Y,
@@ -436,7 +442,7 @@ MANUAL_STEPPER STEPPER=lifter2 ENABLE=0
             FEEDRATE_Z_LOWER,
             ACCELERATION_Z_RAISE
         ))
-    elif gcode_type == GCODE_TYPE_FLUIDNC:
+    elif gcode_type == Gcode_type.FLUIDNC:
         _write_gcode_comment(f, gcode_type, "feedrate: X {} | Y {} | Z ^{} °{}".format(
             FEEDRATE_X,
             FEEDRATE_Y,
@@ -449,18 +455,18 @@ MANUAL_STEPPER STEPPER=lifter2 ENABLE=0
 
     f.write(START_CMD.format(feedrate=FEEDRATE_X))
 
-    if gcode_type == GCODE_TYPE_KLIPPER:
+    if gcode_type == Gcode_type.KLIPPER:
         if config == CONFIG_STICK:
             f.write(START_CMD_KLIPPER_TOOL_STICK)
-            f.write(_move_arm(0, RAISE_DISTANCE, FEEDRATE_Z_RAISE, ACCELERATION_Z_RAISE, GCODE_TYPE_KLIPPER))
-            f.write(_move_arm(1, RAISE_DISTANCE, FEEDRATE_Z_RAISE, ACCELERATION_Z_RAISE, GCODE_TYPE_KLIPPER))
+            f.write(_move_arm(0, RAISE_DISTANCE, FEEDRATE_Z_RAISE, ACCELERATION_Z_RAISE, Gcode_type.KLIPPER))
+            f.write(_move_arm(1, RAISE_DISTANCE, FEEDRATE_Z_RAISE, ACCELERATION_Z_RAISE, Gcode_type.KLIPPER))
         if config == CONFIG_CAN:
             f.write(START_CMD_KLIPPER_TOOL_CAN)
 
-    elif gcode_type == GCODE_TYPE_FLUIDNC:
+    elif gcode_type == Gcode_type.FLUIDNC:
         if config == CONFIG_STICK:
-            f.write(_move_arm(0, RAISE_DISTANCE, FEEDRATE_Z_RAISE, None, GCODE_TYPE_FLUIDNC))
-            f.write(_move_arm(1, RAISE_DISTANCE, FEEDRATE_Z_RAISE, None, GCODE_TYPE_FLUIDNC))
+            f.write(_move_arm(0, RAISE_DISTANCE, FEEDRATE_Z_RAISE, None, Gcode_type.FLUIDNC))
+            f.write(_move_arm(1, RAISE_DISTANCE, FEEDRATE_Z_RAISE, None, Gcode_type.FLUIDNC))
 
     for i in range(len(segments)):
 
@@ -562,12 +568,12 @@ MANUAL_STEPPER STEPPER=lifter2 ENABLE=0
         x=last_line.x2 + 100
     ))
 
-    if gcode_type == GCODE_TYPE_KLIPPER:
+    if gcode_type == Gcode_type.KLIPPER:
         if config == CONFIG_STICK:
             f.write(END_CMD_KLIPPER_TOOL_STICK)
         if config == CONFIG_CAN:
             f.write(END_CMD_KLIPPER_TOOL_CAN)
-    elif gcode_type == GCODE_TYPE_FLUIDNC:
+    elif gcode_type == Gcode_type.FLUIDNC:
         pass
 
     gcode_str = f.getvalue()
@@ -575,18 +581,14 @@ MANUAL_STEPPER STEPPER=lifter2 ENABLE=0
     return gcode_str
 
 
-def _write_gcode_comment(f: Any, gcode_type: str, msg: str) -> None:
-    if gcode_type == GCODE_TYPE_KLIPPER:
-        f.write("% ")
-        f.write(msg)
-        f.write("\n")
-    elif gcode_type == GCODE_TYPE_FLUIDNC:
-        f.write("( ")
-        f.write(msg)
-        f.write(" )\n")
+def _write_gcode_comment(f: Any, gcode_type: Gcode_type, msg: str) -> None:
+    if gcode_type == Gcode_type.KLIPPER:
+        f.write(f"% {msg}\n")
+    elif gcode_type == Gcode_type.FLUIDNC:
+        f.write(f"( {msg} )\n")
 
 
 if __name__ == "__main__":
-    result = generate(Image.open(DEBUG_INPUT_IMAGE), gcode_type=GCODE_TYPE_FLUIDNC)
+    result = generate(Image.open(DEBUG_INPUT_IMAGE), gcode_type=Gcode_type.FLUIDNC)
     print(result)
     write_to_file(Path("output.gcode"), result["gcode"])
