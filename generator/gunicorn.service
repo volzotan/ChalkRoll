@@ -1,0 +1,12 @@
+[Unit]
+Description=gunicorn daemon
+After=network.target
+
+[Service]
+Type=notify
+User=pi
+WorkingDirectory=/home/pi/generator
+ExecStart=gunicorn -w 2 -b 0.0.0.0 "app:app"
+
+[Install]
+WantedBy=multi-user.target
