@@ -70,14 +70,16 @@ def generate(img: Any,
              tool_type: Tool_type = Tool_type.STICK,
              triple_scrubbing: bool = False,
              highspeed: bool = False) -> dict[str, Any]:
+
     config: dict[str, str | float | int] = {}
 
-    if tool_type == Tool_type.STICK:
-        config = CONFIG_STICK
-    elif tool_type == Tool_type.CAN:
-        config = CONFIG_CAN
-    else:
-        raise Exception("unknown tool_type: {}".format(tool_type))
+    match tool_type:
+        case Tool_type.STICK:
+            config = CONFIG_STICK
+        case Tool_type.CAN:
+            config = CONFIG_CAN
+        case _:
+            raise Exception(f"unknown tool_type: {tool_type}")
 
     # remove alpha channel
 
@@ -132,10 +134,6 @@ def generate(img: Any,
         img = img.convert(mode="1")
         img = ImageOps.invert(img)
         layers.append(img)
-
-    # for i in range(len(layers)):
-    #     print("layer {}".format(i))
-    #     display(layers[i])
 
     resize_height = int(float(config["GANTRY_LENGTH"]) / float(config["RESOLUTION_Y"]))
     resize_width = int(img.width / img.height * config["GANTRY_LENGTH"] / config["RESOLUTION_X"])
@@ -327,22 +325,11 @@ def _move_arm(number: int, pos: float, feedrate: float, acceleration: float | No
 
     if gcode_type == Gcode_type.KLIPPER:
         lifters = ["lifter1", "lifter2"]
-
-        return "MANUAL_STEPPER STEPPER={lifter} MOVE={pos:.4f} SPEED={feedrate} ACCEL={accel}\n".format(
-            lifter=lifters[number],
-            pos=pos,
-            feedrate=feedrate,
-            accel=acceleration
-        )
+        return f"MANUAL_STEPPER STEPPER={lifters[number]} MOVE={pos:.4f} SPEED={feedrate} ACCEL={acceleration}\n"
 
     if gcode_type == Gcode_type.FLUIDNC:
         lifters = ["Z", "A"]
-
-        return "G1 {lifter}{pos:.4f} F{feedrate}\n".format(
-            lifter=lifters[number],
-            pos=pos,
-            feedrate=feedrate
-        )
+        return f"G1 {lifters[number]}{pos:.4f} F{feedrate}\n"
 
 
 def _move_servo(number: int, pos: float, gcode_type: Gcode_type) -> str:
@@ -355,20 +342,16 @@ def _move_servo(number: int, pos: float, gcode_type: Gcode_type) -> str:
         if pos == 0:
             servo_wait = 0
 
-        cmd += "SET_SERVO SERVO={} ANGLE={}\n".format(servos[number], pos)
+        cmd += f"SET_SERVO SERVO={servos[number]} ANGLE={pos}\n"
 
         if servo_wait > 0:
-            cmd += "G4 P{}\n".format(servo_wait)
+            cmd += f"G4 P{servo_wait}\n"
 
         return cmd
 
     if gcode_type == Gcode_type.FLUIDNC:
         servos = ["Z", "A"]
-
-        return "G1 {}{}\n".format(
-            servos[number],
-            pos
-        )
+        return f"G1 {servos[number]}{pos}\n"
 
 
 def gcode(segments: list[list[Line]], gcode_type: Gcode_type, config: dict[str, Any],
@@ -430,28 +413,26 @@ MANUAL_STEPPER STEPPER=lifter2 ENABLE=0
 
     f = StringIO()
 
-    _write_gcode_comment(f, gcode_type, "ChalkRoll --- date: {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-    _write_gcode_comment(f, gcode_type, "gcode type: {}".format(gcode_type))
-    _write_gcode_comment(f, gcode_type, "tool type: {}".format(config["TOOL_NAME"]))
-    _write_gcode_comment(f, gcode_type, "gantry length: {}mm".format(config["GANTRY_LENGTH"]))
+    _write_gcode_comment(f, gcode_type, f"ChalkRoll --- date:   {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
+    _write_gcode_comment(f, gcode_type, f"gcode type:           {gcode_type}")
+    _write_gcode_comment(f, gcode_type, f"tool type:            {config["TOOL_NAME"]}")
+    _write_gcode_comment(f, gcode_type, f"gantry length:        {config["GANTRY_LENGTH"]}mm")
     if gcode_type == Gcode_type.KLIPPER:
-        _write_gcode_comment(f, gcode_type, "feedrate: X {} | Y {} | Z ^{} °{} @ {} mm/sec".format(
-            FEEDRATE_X,
-            FEEDRATE_Y,
-            FEEDRATE_Z_RAISE,
-            FEEDRATE_Z_LOWER,
-            ACCELERATION_Z_RAISE
-        ))
+        _write_gcode_comment(
+            f, gcode_type, 
+            f"feedrate: X {FEEDRATE_X} | Y {FEEDRATE_Y} | Z ^{FEEDRATE_Z_RAISE} °{FEEDRATE_Z_LOWER} @ {ACCELERATION_Z_RAISE} mm/sec"
+        )
     elif gcode_type == Gcode_type.FLUIDNC:
-        _write_gcode_comment(f, gcode_type, "feedrate: X {} | Y {} | Z ^{} °{}".format(
-            FEEDRATE_X,
-            FEEDRATE_Y,
-            FEEDRATE_Z_RAISE,
-            FEEDRATE_Z_LOWER
-        ))
+        _write_gcode_comment(
+            f, gcode_type, 
+            f"feedrate: X {FEEDRATE_X} | Y {FEEDRATE_Y} | Z ^{FEEDRATE_Z_RAISE} °{FEEDRATE_Z_LOWER}"
+        )
 
     for key in params.keys():
-        f.write("& info: {} : {}\n".format(key, params[key]))
+        _write_gcode_comment(
+            f, gcode_type,
+            f"info: {key} : {params[key]}\n"
+        )
 
     f.write(START_CMD.format(feedrate=FEEDRATE_X))
 
@@ -533,7 +514,7 @@ MANUAL_STEPPER STEPPER=lifter2 ENABLE=0
             raise_after_column = True
             # if we're looking at the last segment of the current column
             if j == len(column) - 1:
-                if not next_column is None:
+                if next_column is not None:
                     # and the next column is right next to the current one
                     diff_X = abs(s.x2 - next_column[0].x1)
                     # and first segment in next column starts at same Y coordinate

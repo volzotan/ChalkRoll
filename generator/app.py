@@ -34,12 +34,16 @@ def upload():
         uploaded_image = Image.open(io.BytesIO(uploaded_image))
 
         machine_type = request.form["machine_type"].upper()
-        if not machine_type in processing.GCODE_TYPES:
-            raise Exception("unknown machine_type: {}".format(machine_type))
+        try:
+            machine_type = processing.Gcode_type(machine_type)
+        except Exception as e:
+            raise Exception(f"unknown machine_type: {machine_type}")
 
         tool_type = request.form["tool_type"].upper()
-        if not tool_type in processing.TOOL_TYPES:
-            raise Exception("unknown tool_type: {}".format(tool_type))
+        try:
+            tool_type = processing.Tool_type(tool_type)
+        except Exception as e:
+            raise Exception(f"unknown tool_type: {tool_type}")
 
         option_triplescrubbing = False
         if "triplescrubbing" in request.form and request.form["triplescrubbing"].upper() in ["TRUE", "1"]:
@@ -64,12 +68,7 @@ def upload():
         img_base64 = base64.b64encode(img_bytes.getvalue())
 
         gcode_base64 = base64.b64encode(bytearray(result["gcode"], "utf-8"))
-
-        gcode_filename = "{}_{}_{}.gcode".format(
-            Path(uploaded_filename).stem,
-            machine_type,
-            tool_type
-        )
+        gcode_filename = f"{Path(uploaded_filename).stem}_{machine_type}_{tool_type}.gcode"
 
         data = {
             "image_filename": uploaded_filename,
