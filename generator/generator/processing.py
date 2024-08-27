@@ -37,7 +37,7 @@ SERVO_POS_IDLE = 0
 SERVO_WAIT_TIME = 150
 
 DEBUG_INPUT_IMAGE = "../test6.png"
-DEBUG_INPUT_IMAGE = "../HelloWorld_long.png"
+DEBUG_INPUT_IMAGE = "../../HelloWorld_long.png"
 
 
 class Gcode_type(Enum):

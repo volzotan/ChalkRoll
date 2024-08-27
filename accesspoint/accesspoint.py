@@ -66,7 +66,7 @@ if __name__ == "__main__":
 
                 log.info("accesspoint created")
             else:
-                log.info("no accesspoint required. connected to: {}".format(network_name))
+                log.info(f"no accesspoint required. connected to: {network_name}")
 
         except Exception as e:
-            log.error("creating accesspoint failed: {}".format(e))
+            log.error(f"creating accesspoint failed: {e}")
