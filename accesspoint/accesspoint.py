@@ -3,6 +3,14 @@ import subprocess
 import os
 import time
 
+"""
+This script should be invoked at startup to check if the Raspberry Pi is able to
+conntect to a known wifi network. If this fails after `WAIT_TIME` seconds, the Pi
+is in the field and no networks are available. In this case start the necessary
+tools to create an ad-hoc network (dnsmasq as DHCP server and hostapd as the access
+point provider)
+"""
+
 LOG_FILE = "/home/pi/accesspoint/accesspoint.log"
 WAIT_TIME = 40
 
@@ -50,9 +58,7 @@ if __name__ == "__main__":
 
                 subprocess.run(["wpa_cli", "terminate"])
                 subprocess.run(["sudo", "systemctl", "start", "dnsmasq"])
-                subprocess.run(["sudo", "systemctl", "disable", "dnsmasq"])
                 subprocess.run(["sudo", "systemctl", "start", "hostapd"])
-                subprocess.run(["sudo", "systemctl", "disable", "hostapd"])
 
                 # subprocess.run(["sudo", "systemctl", "stop", "wpa_supplicant"], check=True)
                 # subprocess.run(["sudo", "ifconfig", "wlan0", "down"], check=True)
