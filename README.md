@@ -1,6 +1,8 @@
 ![](media/teaser.jpg)
 
-Software and Hardware for a portable chalk printer.
+Software and Hardware for a portable multi-color chalk plotter. 
+
+Convert a raster image of up to three colors (2 colors + background) to Gcode instructions for the drawing robot. The image is reproduced line by line with sidewalk chalk or spray chalk (pressurized chalk dust in a spray can).
 
 ---
 
