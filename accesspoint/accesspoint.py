@@ -38,8 +38,7 @@ if __name__ == "__main__":
     log.info("------------------------")
     log.info("accesspoint service init")
 
-    # res = subprocess.run(["sudo", "systemctl", "status", "hostapd"], capture_output=True)
-    # log.debug(res.stdout)
+    # log.debug(subprocess.run(["sudo", "systemctl", "status", "hostapd"], capture_output=True).stdout)
 
     # waiting a bit
     time.sleep(WAIT_TIME)
@@ -60,6 +59,7 @@ if __name__ == "__main__":
                 subprocess.run(["sudo", "systemctl", "start", "dnsmasq"])
                 subprocess.run(["sudo", "systemctl", "start", "hostapd"])
 
+                # alternatively invoke hostapd directly:
                 # subprocess.run(["sudo", "systemctl", "stop", "wpa_supplicant"], check=True)
                 # subprocess.run(["sudo", "ifconfig", "wlan0", "down"], check=True)
                 # subprocess.run(["sudo", "hostapd", "-B", "/etc/hostapd/hostapd.conf"], check=True)
