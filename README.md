@@ -17,3 +17,5 @@ The chalk printer is controlled by [klipper](https://www.klipper3d.org/) running
 ### Software
 
 Gcode processing is done by a python script accessible via a flask webserver. The server can either be installed manually on the Raspberry Pi running klipper or can be run in a docker container.
+
+![](media/screenshot.png)
